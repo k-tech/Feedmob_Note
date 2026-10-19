@@ -14,6 +14,9 @@ export function parseDocument(value: unknown): JSONContent {
       || (node.type === 'text' && typeof node.text !== 'string')) {
       throw new Error('日志内容块格式无效，未打开编辑器以避免覆盖原文。');
     }
+    // A browser file read cannot survive reload. Keep a recoverable image
+    // placeholder instead of restoring a permanently busy upload.
+    if (node.type === 'image' && node.attrs?.uploadId) node = { ...node, attrs: { ...node.attrs, uploadId: null } };
     let content = node.content?.map(clean).filter(child => child.type !== 'text' || !!child.text);
     // Older divider commands could persist an invalid empty toggle. Restore
     // its required title without discarding any existing body or attributes.

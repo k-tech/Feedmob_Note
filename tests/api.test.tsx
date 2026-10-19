@@ -1,14 +1,19 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { PrismaClient } from '@prisma/client';
 
 test('API saves tags atomically, deduplicates names and rolls back a failed association', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'feedmob-block-test-'));
   const client = new PrismaClient({ datasourceUrl: 'file:' + join(directory, 'test.db').replaceAll('\\', '/') });
+  // Route identity is now session-bound; keep authentication outside this
+  // transaction test while using the isolated user's real database record.
+  const nextAuth = createRequire(import.meta.url)('next-auth/next');
+  const session = mock.method(nextAuth, 'getServerSession', async () => ({ user: { email: 'test@example.invalid' } }));
   let failAssociation = false;
   const isolated = client.$extends({ query: { tagOnLog: { async create({ args, query }) {
     if (failAssociation) throw new Error('Simulated tag failure');
@@ -37,9 +42,19 @@ test('API saves tags atomically, deduplicates names and rolls back a failed asso
     assert.equal(stored?.title, 'original');
     assert.deepEqual(stored?.tags.map(value => value.tag.name), ['project']);
     assert.equal(await client.tag.count({ where: { name: 'new-tag' } }), 0);
+    failAssociation = false;
+    const richDocument = { type: 'doc', content: [
+      { type: 'image', attrs: { src: 'data:image/png;base64,aGVsbG8=', caption: '截图', blockWidth: 65 } },
+      { type: 'htmlPreview', attrs: { code: '<h1>结果</h1>', blockHeight: 480 } },
+      { type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '42' }] }] }] }] },
+    ] };
+    assert.equal((await POST(request({ contentJson: richDocument }))).status, 200);
+    const rich = await client.workLog.findFirst();
+    assert.deepEqual(JSON.parse(rich!.contentJson!), richDocument);
     const invalid = await POST(request({ contentJson: '{invalid json' }));
     assert.equal(invalid.status, 400);
   } finally {
+    session.mock.restore();
     await client.$disconnect();
     delete (globalThis as any).prisma;
     assert.equal(dirname(resolve(directory)), resolve(tmpdir()));

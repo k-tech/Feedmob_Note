@@ -8,7 +8,7 @@ import { BlockEditor } from '../src/components/editor/BlockEditor';
 import { UserProvider } from '../src/lib/user-context';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
-globalThis.fetch = async () => new Response('[]', { status: 200 });
+globalThis.fetch = async (url) => new Response(String(url) === '/api/me' ? JSON.stringify({ id: 'test-user', email: 'test@example.invalid', name: 'Test' }) : '[]', { status: 200 });
 const tick = () => new Promise(resolve => setTimeout(resolve, 20));
 async function mount(onSave: (data: any) => Promise<void>, id = 'test:2099-01-01') {
   const container = document.createElement('div');
@@ -221,4 +221,35 @@ test('a gutter preview commits the same column drop and releases the handle for 
     if(previous) Object.defineProperty(document,'elementFromPoint',previous); else delete (document as any).elementFromPoint;
     await app.close(); localStorage.clear();
   }
+});
+
+
+test('images, HTML source and tables restore from local drafts and submit intact', async () => {
+  localStorage.clear();
+  const id = 'rich-media:2099-01-01';
+  let saved: any;
+  const app = await mount(async data => { saved = data; }, id);
+  let original: any;
+  try {
+    await act(async () => {
+      app.editor.commands.setContent({ type: 'doc', content: [
+        { type: 'image', attrs: { src: 'https://example.com/photo.png', caption: '本周截图', blockWidth: 70 } },
+        { type: 'htmlPreview', attrs: { code: '<button onclick="this.textContent=42">Run</button>', title: '结果看板', blockHeight: 450 } },
+        { type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [{ type: 'paragraph', content: [{ type: 'text', text: '42' }] }] }] }] },
+      ] }, true);
+    });
+    original = app.editor.getJSON();
+    assert.equal(app.container.querySelector('iframe')?.getAttribute('sandbox'), 'allow-scripts');
+    assert.equal(app.container.querySelector('img.journal-image')?.getAttribute('src'), 'https://example.com/photo.png');
+    assert.equal(JSON.stringify(JSON.parse(localStorage.getItem('feedmob-draft:' + id)!).contentJson), JSON.stringify(original));
+  } finally { await app.close(); }
+  const restored = await mount(async data => { saved = data; }, id);
+  try {
+    assert.deepEqual(restored.editor.getJSON(), original);
+    await act(async () => { restored.submit().click(); await tick(); });
+    assert.deepEqual(saved.contentJson, original);
+    assert.match(saved.contentText, /本周截图/);
+    assert.match(saved.contentText, /结果看板/);
+    assert.equal(localStorage.getItem('feedmob-draft:' + id), null);
+  } finally { await restored.close(); localStorage.clear(); }
 });

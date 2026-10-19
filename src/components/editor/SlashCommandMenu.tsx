@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
+import { HTML_EXAMPLE } from './extensions/HtmlNode';
 import { convertBlock } from './utils/block-conversion';
 import { getBlockPosFromSelection } from './utils/block-movement';
 import type { Editor } from '@tiptap/core';
@@ -20,6 +21,11 @@ import {
   List,
   ListOrdered,
   Minus,
+  ImagePlus,
+  Table2,
+  Lightbulb,
+  Info,
+  Target,
 } from 'lucide-react';
 
 export interface SlashItem {
@@ -41,6 +47,45 @@ interface SlashCommandMenuProps {
 }
 
 const ITEMS: SlashItem[] = [
+  {
+    id: 'image', title: '图片', description: '选择图片、粘贴截图、拖入文件或添加图片链接',
+    keywords: ['image', 'photo', 'picture', 'tupian', '截图', '照片', '图片'], icon: ImagePlus,
+    action: (editor, range) => {
+      const chain = editor.chain().focus();
+      if (range) chain.deleteRange(range);
+      chain.insertContent({ type: 'image' }).run();
+    },
+  },
+  {
+    id: 'html', title: 'HTML 预览', description: '在日志中显示 HTML 页面、样式和交互，可导入文件',
+    keywords: ['html', 'web', 'preview', '网页', '界面', '代码预览', 'yulan'], icon: Code2,
+    action: (editor, range) => {
+      const chain = editor.chain().focus();
+      if (range) chain.deleteRange(range);
+      chain.insertContent({ type: 'htmlPreview', attrs: { code: HTML_EXAMPLE } }).run();
+    },
+  },
+  {
+    id: 'table', title: '表格', description: '插入三列表格，整理指标、进度与对照信息',
+    keywords: ['table', 'sheet', 'biaoge', '表格', '数据', '对照'], icon: Table2,
+    action: (editor, range) => {
+      const chain = editor.chain().focus();
+      if (range) chain.deleteRange(range);
+      chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    },
+  },
+  ...([
+    ['tip', '提示', '突出提醒、经验和注意事项', Lightbulb],
+    ['info', '说明', '补充背景、上下文和参考信息', Info],
+    ['success', '目标与产出', '记录目标、交付结果和里程碑', Target],
+  ] as const).map(([id, title, description, icon]): SlashItem => ({
+    id, title, description, keywords: [id, title, id === 'tip' ? 'tishi' : id === 'info' ? 'shuoming' : 'goal'], icon,
+    action: (editor, range) => {
+      const chain = editor.chain().focus();
+      if (range) chain.deleteRange(range);
+      chain.insertContent({ type: 'callout', attrs: { type: id }, content: [{ type: 'paragraph' }] }).run();
+    },
+  })),
   {
     id: 'toggle', title: '折叠列表', description: '收起细节，让正文保持清晰',
     keywords: ['toggle', 'fold', 'zhedie', '折叠', '收起'], icon: ChevronRight,
@@ -298,7 +343,7 @@ const ITEMS: SlashItem[] = [
 ];
 
 export const LOG_TEMPLATE = ITEMS.find(item => item.id === 'template')!;
-const COMMAND_ORDER = ['paragraph', 'h1', 'h2', 'h3', 'taskList', 'bulletList', 'orderedList', 'toggle', 'blockquote', 'codeBlock', 'divider', 'blocker', 'columns', 'mermaid', 'whiteboard', 'embed', 'template'];
+const COMMAND_ORDER = ['paragraph', 'h1', 'h2', 'h3', 'taskList', 'bulletList', 'orderedList', 'toggle', 'blockquote', 'codeBlock', 'divider', 'image', 'html', 'table', 'columns', 'mermaid', 'whiteboard', 'embed', 'tip', 'info', 'success', 'blocker', 'template'];
 const LABELS: Record<string, [string, string]> = {
   paragraph: ['文本', '从一段普通文字开始'], h1: ['标题 1', '用于页面的主要章节'], h2: ['标题 2', '用于章节内的小节'], h3: ['标题 3', '用于更细一级的内容'],
   taskList: ['待办事项', '跟踪任务，完成后勾选'], bulletList: ['项目列表', '用圆点列出几件事情'], orderedList: ['编号列表', '按顺序记录步骤或要点'],
@@ -307,7 +352,7 @@ const LABELS: Record<string, [string, string]> = {
   whiteboard: ['白板', '画一个草图或解释想法'], embed: ['嵌入链接', '添加 Figma、视频或网页'], template: ['日志模板', '今日进展、阻塞事项和明日计划'],
 };
 export const SLASH_ITEMS = [...ITEMS].sort((a, b) => COMMAND_ORDER.indexOf(a.id) - COMMAND_ORDER.indexOf(b.id)).map(item => ({ ...item, title: LABELS[item.id]?.[0] || item.title, description: LABELS[item.id]?.[1] || item.description }));
-const commandGroup = (id: string) => id === 'template' || id === 'blocker' ? '工作日志' : ['columns', 'mermaid', 'whiteboard', 'embed'].includes(id) ? '布局与内容' : '基础块';
+const commandGroup = (id: string) => ['template', 'blocker', 'tip', 'info', 'success'].includes(id) ? '工作日志' : ['image', 'html', 'table', 'columns', 'mermaid', 'whiteboard', 'embed'].includes(id) ? '布局与内容' : '基础块';
 
 export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   editor,

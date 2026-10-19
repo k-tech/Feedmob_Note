@@ -19,6 +19,11 @@ import { CalloutNode } from './extensions/CalloutNode';
 import { MermaidNode } from './extensions/MermaidNode';
 import { WhiteboardNode } from './extensions/WhiteboardNode';
 import { EmbedNode } from './extensions/EmbedNode';
+import { ImageNode } from './extensions/ImageNode';
+import { HtmlNode } from './extensions/HtmlNode';
+import { TableExtensions } from './extensions/TableExtensions';
+import { TableToolbar } from './TableToolbar';
+import { hasPendingImages } from './utils/image';
 import { ColumnList, Column } from './extensions/ColumnsExtension';
 import { SlashCommandMenu, LOG_TEMPLATE } from './SlashCommandMenu';
 import { BlockDragHandle } from './BlockDragHandle';
@@ -133,6 +138,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
         showOnlyCurrent: false,
         placeholder: ({ node, pos, editor }) => {
           const $pos = editor.state.doc.resolve(pos);
+          if (['tableCell', 'tableHeader'].includes($pos.parent.type.name)) return '';
           if ($pos.parent.type.name === 'toggle' && $pos.index() === 0) return '折叠标题';
           if (node.type.name === 'heading') {
             return '标题...';
@@ -144,6 +150,9 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       MermaidNode,
       WhiteboardNode,
       EmbedNode,
+      ImageNode,
+      HtmlNode,
+      ...TableExtensions,
       ColumnList,
       Column,
       SlashCommand,
@@ -254,6 +263,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       const refreshEvent = event as CustomEvent<AppRefreshDetail>;
       let reason: string | undefined;
       if (savingRef.current) reason = '日志正在提交，请完成后再刷新。';
+      else if (hasPendingImages(editor)) reason = '图片正在处理，请完成后再刷新。';
       else if (editor.view.composing) reason = '请先完成当前文字输入，再刷新更新。';
       else if (!persist()) reason = '草稿未能保存，请先提交日志，再刷新更新。';
       if (reason) { refreshEvent.detail.reason = reason; refreshEvent.preventDefault(); }
@@ -266,6 +276,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
 
   const handleManualSave = async () => {
     if (!editor || isSaving || savingRef.current) return;
+    if (hasPendingImages(editor)) { setSaveError('图片正在处理，请完成后再提交。'); return; }
     savingRef.current = true;
     setSavePending(true);
     setSaveError(null);
@@ -424,6 +435,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
             <button type="button" aria-label="编辑链接" aria-pressed={editor.isActive('link')} onClick={() => setLinkOpen(true)}><Link2 size={16} /></button>
           </SelectionToolbar>}
           {editor && <EditorLinkPopover editor={editor} isOpen={linkOpen} onClose={() => setLinkOpen(false)} />}
+          {editor && <TableToolbar editor={editor} />}
           <EditorContent editor={editor} className="editor-content" />
           <SlashCommandMenu editor={editor} isOpen={!!slash.match} onClose={slash.close} position={slash.position} query={slash.match?.query} range={slash.match ? { from: slash.match.from, to: slash.match.to } : undefined} />
           <button type="button" aria-label="在文档末尾添加块" className="document-end" onClick={focusEnd}><Plus size={14} /><span>继续记录，或输入 / 插入块</span></button>

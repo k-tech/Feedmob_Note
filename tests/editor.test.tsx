@@ -8,6 +8,9 @@ import TaskItem from '@tiptap/extension-task-item';
 import { Column, ColumnList } from '../src/components/editor/extensions/ColumnsExtension';
 import { CalloutNode } from '../src/components/editor/extensions/CalloutNode';
 import { MermaidNode } from '../src/components/editor/extensions/MermaidNode';
+import { ImageNode } from '../src/components/editor/extensions/ImageNode';
+import { HtmlNode } from '../src/components/editor/extensions/HtmlNode';
+import { TableExtensions } from '../src/components/editor/extensions/TableExtensions';
 import { EmbedNode } from '../src/components/editor/extensions/EmbedNode';
 import { WhiteboardNode } from '../src/components/editor/extensions/WhiteboardNode';
 import { ToggleNode } from '../src/components/editor/extensions/ToggleNode';
@@ -25,7 +28,7 @@ const editors: Editor[] = [];
 const p = (text = '') => ({ type: 'paragraph', ...(text ? { content: [{ type: 'text', text }] } : {}) });
 function make(content: any[] = [p()]) {
   const editor = new Editor({
-    extensions: [StarterKit, TaskList, TaskItem.configure({ nested: true }), ColumnList, Column, CalloutNode, MermaidNode, WhiteboardNode, EmbedNode, SlashCommand, ToggleNode],
+    extensions: [StarterKit, TaskList, TaskItem.configure({ nested: true }), ColumnList, Column, CalloutNode, MermaidNode, WhiteboardNode, EmbedNode, ImageNode, HtmlNode, ...TableExtensions, SlashCommand, ToggleNode],
     content: { type: 'doc', content },
   });
   editors.push(editor);
@@ -112,6 +115,7 @@ test('hovering padding in the right column addresses its block rather than the r
   const columns = editor.view.dom.querySelectorAll<HTMLElement>('[data-type="column"]');
   const right = columns[1], block = right.querySelector('p')!;
   rect(editor.view.dom, 100, 100, 1000, 300);
+  rect(right.querySelector<HTMLElement>('.column-content')!, 656, 100, 444, 30);
   rect(right, 656, 100, 444, 80);
   rect(block, 656, 100, 444, 30);
   atPoint(right, () => {
@@ -446,5 +450,52 @@ test('converting a folded toggle preserves rich title and nested body, and undo 
   assert.equal(editor.commands.undo(), true);
   assert.equal(editor.state.doc.firstChild?.type.name, 'toggle');
   assert.equal(editor.state.doc.firstChild?.attrs.collapsed, true);
+  editor.state.doc.check();
+});
+
+
+test('rich blocks survive JSON reload and movement into columns', () => {
+  const editor = make([
+    { type: 'image', attrs: { src: 'https://example.com/screenshot.png', alt: '截图', caption: '进度', blockWidth: 60 } },
+    { type: 'htmlPreview', attrs: { code: '<style>h1{color:green}</style><h1>42</h1>', title: '仪表盘', blockHeight: 420 } },
+    p('tail'),
+  ]);
+  const before = editor.getJSON();
+  const restored = make(before.content);
+  assert.deepEqual(restored.getJSON(), before);
+  assert.match(editor.getText(), /截图.*进度/);
+  assert.match(editor.getText(), /仪表盘/);
+  assert.equal(drop(editor, 0, editor.state.doc.firstChild!.nodeSize, 'left'), true);
+  editor.state.doc.check();
+  assert.equal(editor.state.doc.firstChild?.type.name, 'columnList');
+  editor.commands.undo();
+  assert.deepEqual(editor.getJSON(), before);
+});
+
+test('tables add and remove rows/columns, merge/split and address the whole table for dragging', () => {
+  const editor = make();
+  SLASH_ITEMS.find(item => item.id === 'table')!.action(editor);
+  editor.commands.insertContent('Metric');
+  editor.commands.addRowAfter();
+  editor.commands.addColumnAfter();
+  let table = editor.state.doc.firstChild!;
+  assert.equal(table.type.name, 'table');
+  assert.equal(table.childCount, 4);
+  assert.equal(table.firstChild!.childCount, 4);
+  editor.commands.deleteRow();
+  editor.commands.deleteColumn();
+  table = editor.state.doc.firstChild!;
+  assert.equal(table.childCount, 3);
+  assert.equal(table.firstChild!.childCount, 3);
+  const row = table.firstChild!;
+  editor.commands.setCellSelection({ anchorCell: 2, headCell: 2 + row.firstChild!.nodeSize });
+  assert.equal(editor.commands.mergeCells(), true);
+  assert.equal(editor.state.doc.firstChild!.firstChild!.firstChild!.attrs.colspan, 2);
+  assert.equal(editor.commands.splitCell(), true);
+  assert.equal(editor.state.doc.firstChild!.firstChild!.childCount, 3);
+  const paragraph = editor.view.dom.querySelector('td p, th p') as HTMLElement;
+  atPoint(paragraph, () => assert.equal(findBlockAtPoint(editor.view, 0, 0)?.node.type.name, 'table'));
+  const serialized = editor.getJSON();
+  assert.deepEqual(make(serialized.content).getJSON(), serialized);
   editor.state.doc.check();
 });

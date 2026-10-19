@@ -41,9 +41,17 @@ function logicalBlock(view: EditorView, pos: number): BlockHit | null {
   let node = view.state.doc.nodeAt(pos);
   if (!node?.isBlock || LAYOUT_NODES.has(node.type.name)) return null;
   const $pos = view.state.doc.resolve(pos);
+  // Table rows/cells are structural nodes; their handles address the table.
+  for (let depth = $pos.depth; depth > 0; depth--) {
+    if ($pos.node(depth).type.name === 'table') {
+      pos = $pos.before(depth);
+      node = $pos.node(depth);
+      break;
+    }
+  }
   // Checkbox/number, text and nested content address one whole list item.
   for (let depth = $pos.depth; depth > 0; depth--) {
-    if (['listItem', 'taskItem'].includes($pos.node(depth).type.name)) {
+    if (node.type.name !== 'table' && ['listItem', 'taskItem'].includes($pos.node(depth).type.name)) {
       pos = $pos.before(depth);
       node = $pos.node(depth);
       break;
