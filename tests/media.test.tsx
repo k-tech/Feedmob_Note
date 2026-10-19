@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
+import { closeHistory } from '@tiptap/pm/history';
 import { ImageNode } from '../src/components/editor/extensions/ImageNode';
 import { HtmlNode } from '../src/components/editor/extensions/HtmlNode';
 import { imageSource, insertImageFiles, readImage } from '../src/components/editor/utils/image';
@@ -68,5 +69,41 @@ test('HTML previews keep scripts inside an opaque sandbox and preserve source on
     const before = editor.getJSON();
     editor.commands.setContent(editor.getHTML());
     assert.deepEqual(editor.getJSON(), before);
+  } finally { editor.destroy(); }
+});
+
+
+test('completed image imports undo and redo without restoring orphaned busy placeholders', async () => {
+  const editor = new Editor({ extensions: [StarterKit, ImageNode], content: '<p>keep</p>' });
+  try {
+    const pending = insertImageFiles(editor, [gif()], 0);
+    // Simulate a file read completing after a history boundary / slow decode.
+    editor.view.dispatch(closeHistory(editor.state.tr));
+    await pending;
+    const imported = editor.getJSON();
+    assert.equal(editor.commands.undo(), true);
+    assert.equal(editor.state.doc.firstChild!.type.name, 'paragraph');
+    assert.equal(editor.getText(), 'keep');
+    assert.equal(editor.commands.redo(), true);
+    assert.deepEqual(editor.getJSON(), imported);
+    assert.equal(editor.state.doc.firstChild!.attrs.uploadId, null);
+    assert.match(editor.state.doc.firstChild!.attrs.src, /^data:image/);
+  } finally { editor.destroy(); }
+});
+
+
+test('redo after undoing an unfinished file import restores its completed result', async () => {
+  const editor = new Editor({ extensions: [StarterKit, ImageNode], content: '<p>keep</p>' });
+  try {
+    const pending = insertImageFiles(editor, [gif()], 0);
+    assert.equal(editor.commands.undo(), true);
+    await pending;
+    assert.equal(editor.state.doc.firstChild!.type.name, 'paragraph');
+    assert.equal(editor.commands.redo(), true);
+    assert.equal(editor.state.doc.firstChild!.attrs.uploadId, null);
+    assert.match(editor.state.doc.firstChild!.attrs.src, /^data:image/);
+    editor.commands.undo(); editor.commands.redo();
+    assert.equal(editor.state.doc.firstChild!.attrs.uploadId, null);
+    assert.match(editor.state.doc.firstChild!.attrs.src, /^data:image/);
   } finally { editor.destroy(); }
 });

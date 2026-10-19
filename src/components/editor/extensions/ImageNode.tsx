@@ -4,7 +4,7 @@ import { ReactNodeViewRenderer, type NodeViewProps } from '@tiptap/react';
 import { Plugin } from '@tiptap/pm/state';
 import { ImagePlus, Settings } from 'lucide-react';
 import { ResizableBlock, blockSizeAttributes } from '../ResizableBlock';
-import { IMAGE_ACCEPT, imageSource, insertImageFiles } from '../utils/image';
+import { IMAGE_ACCEPT, imageSource, insertImageFiles, resolveImageImports } from '../utils/image';
 import { getDraggedBlockPos } from '../utils/block-drag';
 
 function ImageComponent(props: NodeViewProps) {
@@ -50,20 +50,27 @@ export const ImageNode = Node.create({
   addNodeView() { return ReactNodeViewRenderer(ImageComponent); },
   addProseMirrorPlugins() {
     const editor = this.editor;
-    return [new Plugin({ props: {
-      handlePaste(view, event) {
-        const files = Array.from(event.clipboardData?.files || []).filter(file => file.type.startsWith('image/'));
-        if (!editor.isEditable || !files.length) return false;
-        event.preventDefault(); void insertImageFiles(editor, files); return true;
+    return [new Plugin({
+      appendTransaction(transactions, _oldState, state) {
+        if (!transactions.some(tr => tr.docChanged)) return null;
+        const tr = resolveImageImports(editor, state.tr);
+        return tr.docChanged ? tr : null;
       },
-      handleDrop(view, event, _slice, moved) {
-        if (moved || getDraggedBlockPos(view) !== null || !editor.isEditable) return false;
-        const files = Array.from(event.dataTransfer?.files || []).filter(file => file.type.startsWith('image/'));
-        if (!files.length) return false;
-        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
-        if (pos === undefined) return false;
-        event.preventDefault(); void insertImageFiles(editor, files, pos); return true;
+      props: {
+        handlePaste(view, event) {
+          const files = Array.from(event.clipboardData?.files || []).filter(file => file.type.startsWith('image/'));
+          if (!editor.isEditable || !files.length) return false;
+          event.preventDefault(); void insertImageFiles(editor, files); return true;
+        },
+        handleDrop(view, event, _slice, moved) {
+          if (moved || getDraggedBlockPos(view) !== null || !editor.isEditable) return false;
+          const files = Array.from(event.dataTransfer?.files || []).filter(file => file.type.startsWith('image/'));
+          if (!files.length) return false;
+          const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+          if (pos === undefined) return false;
+          event.preventDefault(); void insertImageFiles(editor, files, pos); return true;
+        },
       },
-    } })];
+    })];
   },
 });

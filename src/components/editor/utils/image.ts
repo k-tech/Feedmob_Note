@@ -1,4 +1,19 @@
 import type { Editor } from '@tiptap/core';
+import type { Transaction } from '@tiptap/pm/state';
+
+// History can temporarily remove an import before its file read completes.
+// Keep its result for this editor so redo can restore the finished image.
+const completedImports = new WeakMap<Editor, Map<string, Record<string, unknown>>>();
+
+export function resolveImageImports(editor: Editor, tr: Transaction) {
+  const completed = completedImports.get(editor);
+  if (!completed?.size) return tr;
+  tr.doc.descendants((node, at) => {
+    const attrs = node.type.name === 'image' && completed.get(node.attrs.uploadId);
+    if (attrs) tr.setNodeMarkup(at, undefined, { ...node.attrs, ...attrs, uploadId: null });
+  });
+  return tr.setMeta('addToHistory', false);
+}
 
 export const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 export const MAX_IMAGE_BYTES = 1024 * 1024;
@@ -67,10 +82,12 @@ export function insertImageFiles(editor: Editor, files: File[], pos?: number, re
     try { attrs = { src: await readImage(file), error: '' }; }
     catch (error) { attrs = { error: error instanceof Error ? error.message : '读取图片失败。' }; }
     if (editor.isDestroyed) return;
-    const tr = editor.state.tr;
-    editor.state.doc.descendants((node, at) => {
-      if (node.type.name === 'image' && node.attrs.uploadId === id) tr.setNodeMarkup(at, undefined, { ...node.attrs, ...attrs, uploadId: null });
-    });
+    let completed = completedImports.get(editor);
+    if (!completed) { completed = new Map(); completedImports.set(editor, completed); }
+    completed.set(id, attrs);
+    const tr = resolveImageImports(editor, editor.state.tr);
+    // Completion is the result of the insertion, not a separate undo step.
+    // Undo must never restore a busy placeholder with no file read attached.
     if (tr.docChanged) editor.view.dispatch(tr);
   }));
 }
