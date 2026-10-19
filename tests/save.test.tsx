@@ -280,7 +280,6 @@ test('pasted Markdown tasks remain clickable, restore from drafts and submit che
     assert.equal(restored.container.querySelectorAll('input[type="checkbox"]:checked').length, 2);
     await act(async () => { restored.submit().click(); await tick(); });
     assert.deepEqual(saved.contentJson, original);
-    assert.ok(!saved.contentText.includes('- [ ]'));
-    assert.match(saved.contentText, /first <> task/);
+    assert.equal(saved.contentText, '- [x] first <> task\n- [x] 已完成\n- [ ] 最后一项');
   } finally { await restored.close(); localStorage.clear(); }
 });

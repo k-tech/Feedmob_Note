@@ -7,8 +7,8 @@ import { Slice } from '@tiptap/pm/model';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Column, ColumnList } from '../src/components/editor/extensions/ColumnsExtension';
-import { MarkdownTaskPaste } from '../src/components/editor/extensions/MarkdownTaskPaste';
-import { parseMarkdownTasks } from '../src/components/editor/utils/markdown-tasks';
+import { EditorClipboard } from '../src/components/editor/extensions/EditorClipboard';
+import { parseMarkdown } from '../src/components/editor/utils/markdown';
 
 const CHECKLIST = [
   '- [ ] Customer A <> LG 后续 gross spend 的录入',
@@ -21,7 +21,7 @@ const CHECKLIST = [
 ].join('\n');
 const p = (text = '') => ({ type: 'paragraph', ...(text ? { content: [{ type: 'text', text }] } : {}) });
 function make(content: any[] = [p()]) {
-  return new Editor({ extensions: [StarterKit, TaskList, TaskItem.configure({ nested: true }), ColumnList, Column, MarkdownTaskPaste], content: { type: 'doc', content } });
+  return new Editor({ extensions: [StarterKit, TaskList, TaskItem.configure({ nested: true }), ColumnList, Column, EditorClipboard], content: { type: 'doc', content } });
 }
 function paste(editor: Editor, text: string, html = '') {
   const event = new window.Event('paste', { bubbles: true, cancelable: true });
@@ -49,9 +49,8 @@ test('a seven-line Markdown checklist preserves literal text, order and the thir
 });
 
 test('task parsing supports uppercase X, bullet variants, CRLF, blank tasks and nested indentation', () => {
-  const nodes = parseMarkdownTasks('* [X] parent\r\n  + [ ] child\r\n    - [x] grandchild\r\n- [ ]');
-  assert.ok(nodes);
-  const editor = make(nodes);
+  const editor = make();
+  paste(editor, '* [X] parent\r\n  + [ ] child\r\n    - [x] grandchild\r\n- [ ]');
   try {
     const list = editor.state.doc.firstChild!;
     assert.equal(list.childCount, 2);
@@ -69,8 +68,8 @@ test('mixed prose and task lists keep surrounding text, blank lines and literal 
   const editor = make();
   try {
     paste(editor, '今日计划\n\n- [ ] <script>alert(1)</script> & A <> B\n- [x] 完成\n\n明日继续');
-    assert.equal(editor.state.doc.childCount, 5);
-    assert.equal(editor.state.doc.child(2).type.name, 'taskList');
+    assert.equal(editor.state.doc.childCount, 3);
+    assert.equal(editor.state.doc.child(1).type.name, 'taskList');
     assert.equal(editor.view.dom.querySelector('script'), null);
     assert.match(editor.getText(), /<script>alert\(1\)<\/script> & A <> B/);
     assert.match(editor.getText(), /^今日计划/);
@@ -79,10 +78,15 @@ test('mixed prose and task lists keep surrounding text, blank lines and literal 
 });
 
 test('ordinary text, code fences, indented code and code-block destinations stay literal', () => {
-  for (const text of ['plain text', '[] is not a task', '    - [ ] indented code', '```markdown\n- [ ] code\n```', '~~~\n- [x] code\n~~~']) assert.equal(parseMarkdownTasks(text), null);
-  const nodes = parseMarkdownTasks('```\n- [ ] literal\n```\n- [x] real');
-  assert.equal(nodes![1].type, 'paragraph');
-  assert.equal(nodes![3].type, 'taskList');
+  const sample = make();
+  try {
+    assert.equal(parseMarkdown('plain text', sample.schema), null);
+    const nodes = parseMarkdown('```markdown\n- [ ] literal\n```\n- [x] real', sample.schema)!;
+    assert.equal(nodes.firstChild!.type.name, 'codeBlock');
+    assert.equal(nodes.firstChild!.textContent, '- [ ] literal');
+    assert.equal(nodes.lastChild!.type.name, 'taskList');
+    assert.equal(parseMarkdown('    - [ ] code', sample.schema)!.firstChild!.type.name, 'codeBlock');
+  } finally { sample.destroy(); }
   const editor = make([{ type: 'codeBlock' }]);
   try {
     paste(editor, CHECKLIST);
@@ -127,13 +131,11 @@ test('pasting into an empty checkbox creates peers, and pasting into a column st
   } finally { editor.destroy(); }
 });
 
-test('formatted rich clipboard content, image files and read-only documents use native handling', () => {
+test('image files and read-only documents do not enter Markdown parsing', () => {
   const editor = make();
   try {
-    const rich = editor.schema.nodeFromJSON({ type: 'paragraph', content: [{ type: 'text', text: '- [ ] bold', marks: [{ type: 'bold' }] }] });
-    const slice = new Slice(rich.content, 0, 0);
-    const event = { clipboardData: { files: [], getData: (type: string) => type === 'text/html' ? '<b>- [ ] bold</b>' : type === 'text/plain' ? '- [ ] bold' : '' }, preventDefault() { throw new Error('must not intercept'); } } as any;
-    assert.equal(editor.view.someProp('handlePaste', fn => fn(editor.view, event, slice)), undefined);
+    const slice = new Slice(editor.state.doc.content, 0, 0);
+    const event = { clipboardData: { files: [], getData: (type: string) => type === 'text/plain' ? '- [ ] task' : '' }, preventDefault() { throw new Error('must not intercept'); } } as any;
     event.clipboardData.files = [new window.File(['x'], 'a.png', { type: 'image/png' })];
     assert.equal(editor.view.someProp('handlePaste', fn => fn(editor.view, event, slice)), undefined);
     editor.setEditable(false);

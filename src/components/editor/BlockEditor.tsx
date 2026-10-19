@@ -9,7 +9,7 @@ import { EditorLinkPopover } from './EditorLinkPopover';
 import { BlockSelectionToolbar } from './BlockSelectionToolbar';
 import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
+import { TaskItem } from './extensions/TaskItem';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import Highlight from '@tiptap/extension-highlight';
@@ -29,7 +29,8 @@ import { SlashCommandMenu, LOG_TEMPLATE } from './SlashCommandMenu';
 import { BlockDragHandle } from './BlockDragHandle';
 import { moveBlock, duplicateBlock } from './utils/block-movement';
 import { SlashCommand } from './extensions/SlashCommand';
-import { MarkdownTaskPaste } from './extensions/MarkdownTaskPaste';
+import { EditorClipboard } from './extensions/EditorClipboard';
+import { serializeBlocks } from './utils/clipboard';
 import { getDraggedBlockPos } from './utils/block-drag';
 import { useSlashCommand } from './useSlashCommand';
 import { parseDocument, snapshotKey, type DocumentSnapshot } from './utils/document';
@@ -157,7 +158,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       ColumnList,
       Column,
       SlashCommand,
-      MarkdownTaskPaste,
+      EditorClipboard,
       ToggleNode,
       BlockSelection,
     ],
@@ -284,7 +285,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
     setSaveError(null);
     const snapshot = { title, contentJson: editor.getJSON(), tagNames: tags, mood };
     try {
-      await onSave({ ...snapshot, contentText: editor.getText() });
+      await onSave({ ...snapshot, contentText: serializeBlocks(editor.state.doc.content) });
       savedRef.current = snapshotKey(snapshot);
       const dirty = snapshotKey(currentSnapshotRef.current) !== savedRef.current;
       setIsDirty(dirty);

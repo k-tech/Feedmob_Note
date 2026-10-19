@@ -7,3 +7,9 @@
 - `--prune-build-cache` additionally clears unused cache in the shared Docker builder. It never prunes volumes or unrelated application images/containers. Subsequent builds may need to download dependencies again.
 - This latest policy supersedes older deployment reports that retained snapshots. Keep this policy in both `AGENTS.md` and the README; cleanup is a required final release step, not an optional follow-up. Verify the public version and database integrity after cleanup.
 - Build and publish from the committed revision so deleted artifacts can be rebuilt. Keep credentials and runtime data out of Git.
+
+# Minework editor
+
+- Keep one visual editor and one JSON document. Markdown is an input/clipboard/export format; do not require a separate source mode for ordinary writing or copy/paste. See `docs/research/07_Notion_clipboard_and_single_editor.md`.
+- Keep rich internal slices and node attributes intact. Serialize plain text by semantic blocks, not every nested container. Do not globally strip paragraph/code whitespace or bulk-delete historical blank paragraphs.
+- Clipboard changes must cover the seven-task acceptance case through three consecutive round-trips, preserving order and completion state without growing blank lines; verify native rich HTML, Notion task HTML, nested tasks, partial selection, undo/redo and draft/save behavior.
