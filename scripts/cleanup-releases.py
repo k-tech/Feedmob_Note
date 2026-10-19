@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Keep the active Minework release; preview by default, delete with --apply."""
 import argparse
-import filecmp
 import json
 import re
 import shutil
@@ -23,7 +22,7 @@ def inspect(name):
 def checked_path(path, protected):
     if path.is_symlink() or not path.resolve().is_relative_to(ROOT.resolve()):
         raise RuntimeError(f'Refusing cleanup outside release root: {path}')
-    if any(path.resolve() == item or item.is_relative_to(path.resolve()) for item in protected):
+    if any(path.resolve() == item or item.is_relative_to(path.resolve()) or path.resolve().is_relative_to(item) for item in protected):
         raise RuntimeError(f'Refusing cleanup of an active mount or release: {path}')
     return path
 
@@ -66,23 +65,21 @@ def main():
     for path in (ROOT / 'releases').iterdir():
         if path != release:
             paths.append(checked_path(path, protected))
-    backups = ROOT / 'backups'
-    snapshots = []
-    if backups.exists():
-        checked_path(backups, protected)
-        # Git contains code, not log data. Preserve existing database snapshots.
-        for path in backups.rglob('*'):
-            if path.is_file() and not path.is_symlink() and re.search(r'\.(?:db|sqlite|sqlite3)(?:$|[.\-])', path.name):
-                snapshots.append(path)
-        paths.append(backups)
-    for pattern in ['workweave-*.tar.gz', 'minework-*.tar.gz', 'build-*.sh', 'deploy-*.sh', 'verify-*.py', 'inventory-cleanup.py']:
+    # Latest-only retention includes database snapshots. Never move backups to
+    # another directory: the live bind-mounted database remains protected above.
+    for name in ['backups', 'database-backups']:
+        path = ROOT / name
+        if path.exists():
+            paths.append(checked_path(path, protected))
+    for pattern in ['workweave-*.tar.gz', 'minework-*.tar.gz', 'workweave-*.zip', 'minework-*.zip', 'build-*.sh', 'deploy-*.sh', 'build-*.py', 'deploy-*.py', 'publish-*.py', 'verify-*.py', 'inspect-*.py', 'audit-*.py', 'inventory-cleanup.py', '*.bak', '*.backup', '*.old']:
         for path in ROOT.glob(pattern):
             if path.is_file():
                 paths.append(checked_path(path, protected))
+    paths = list(dict.fromkeys(paths))
     plan = {'mode': 'apply' if args.apply else 'preview', 'keep_image': image,
             'keep_release': str(release), 'remove_containers': [c['Name'][1:] for c in obsolete],
             'remove_images': old_images, 'remove_paths': [str(p) for p in paths],
-            'preserve_database_snapshots': [str(p) for p in snapshots],
+            'retention': 'active release and live data only; no historical backups',
             'prune_shared_unused_build_cache': args.prune_build_cache}
     print(json.dumps(plan, indent=2), flush=True)
     if not args.apply:
@@ -92,17 +89,6 @@ def main():
     if latest['Id'] != active['Id'] or latest['Image'] != active['Image'] or not latest['State']['Running']:
         raise RuntimeError('The active deployment changed; rerun the preview')
     free_before = shutil.disk_usage(ROOT).free
-    for path in snapshots:
-        destination = ROOT / 'database-backups' / path.relative_to(backups)
-        destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if destination.exists():
-            if not filecmp.cmp(path, destination, shallow=False):
-                raise RuntimeError(f'Database backup name collision: {destination}')
-        else:
-            shutil.copy2(path, destination)
-            destination.chmod(0o600)
-        if not filecmp.cmp(path, destination, shallow=False):
-            raise RuntimeError('Database snapshot copy verification failed')
     for container in obsolete:
         latest = inspect(container['Id'])
         if latest['State']['Status'] not in {'exited', 'created', 'dead'}:
