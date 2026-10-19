@@ -13,9 +13,10 @@ function inline(node: ProseMirrorNode): string {
       if (mark.type.name === 'code') {
         const fence = '`'.repeat(Math.max(1, ...Array.from(text.matchAll(/`+/g), m => m[0].length + 1)));
         text = `${fence} ${text} ${fence}`;
-      } else if (mark.type.name === 'bold') text = `**${text}**`;
-      else if (mark.type.name === 'italic') text = `*${text}*`;
-      else if (mark.type.name === 'strike') text = `~~${text}~~`;
+      } else if (['bold', 'italic', 'strike'].includes(mark.type.name)) {
+        const delimiter = { bold: '**', italic: '*', strike: '~~' }[mark.type.name]!;
+        text = text.replace(/^(\s*)([\s\S]*?)(\s*)$/, (_all, before, body, after) => body ? `${before}${delimiter}${body}${delimiter}${after}` : before + after);
+      }
       else if (mark.type.name === 'link') text = `[${text}](${mark.attrs.href})`;
     }
     return text;
@@ -67,7 +68,11 @@ function block(node: ProseMirrorNode): string {
   }
   // Custom blocks keep their full attributes in ProseMirror's HTML clipboard.
   // Their plain-text representation is intentionally readable and portable.
-  if (type === 'image') return node.attrs.src ? `![${node.attrs.alt || node.attrs.caption || '图片'}](${node.attrs.src})` : '[图片]';
+  if (type === 'image') {
+    const label = node.attrs.alt || node.attrs.caption || '图片';
+    // Embedded image bytes stay in the rich Slice, not text indexes/clipboards.
+    return /^https?:\/\//i.test(node.attrs.src || '') ? `![${label}](${node.attrs.src})` : `[图片${label === '图片' ? '' : '：' + label}]`;
+  }
   if (type === 'htmlPreview') return `[HTML 预览${node.attrs.title ? '：' + node.attrs.title : ''}]`;
   if (type === 'embed') return node.attrs.src || '[嵌入内容]';
   if (type === 'mermaid') return '```mermaid\n' + (node.attrs.code || '') + '\n```';

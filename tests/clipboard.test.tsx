@@ -227,3 +227,16 @@ test('Backspace merges task text without empty containers, rich HTML is not form
     assert.equal(copy(editor).text, '');
   } finally { editor.destroy(); }
 });
+
+test('embedded image bytes stay out of text summaries and formatted text keeps boundary spaces', () => {
+  const editor = make([{ type: 'image', attrs: { src: 'data:image/png;base64,iVBORw0KGgo=', caption: '截图' } }, { type: 'paragraph', content: [{ type: 'text', text: 'bold ', marks: [{ type: 'bold' }] }, { type: 'text', text: 'tail' }] }]);
+  try {
+    editor.commands.selectAll(); const clipboard = copy(editor);
+    assert.equal(clipboard.text, '[图片：截图]\n\n**bold** tail');
+    assert.ok(!serializeBlocks(editor.state.doc.content).includes('base64'));
+    assert.ok(clipboard.dom.innerHTML.includes('data:image/png;base64,'));
+    editor.commands.clearContent(); paste(editor, '**bold** tail');
+    assert.equal(editor.state.doc.firstChild!.firstChild!.marks[0].type.name, 'bold');
+    assert.equal(editor.state.doc.firstChild!.textContent, 'bold tail');
+  } finally { editor.destroy(); }
+});
