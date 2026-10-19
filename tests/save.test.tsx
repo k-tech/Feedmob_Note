@@ -253,3 +253,34 @@ test('images, HTML source and tables restore from local drafts and submit intact
     assert.equal(localStorage.getItem('feedmob-draft:' + id), null);
   } finally { await restored.close(); localStorage.clear(); }
 });
+
+
+test('pasted Markdown tasks remain clickable, restore from drafts and submit checked states', async () => {
+  localStorage.clear();
+  const id = 'markdown-tasks:2099-01-01';
+  const app = await mount(async () => {}, id);
+  let original: any;
+  try {
+    await act(async () => {
+      const text = '- [ ] first <> task\n- [x] 已完成\n- [ ] 最后一项';
+      const event = new window.Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'clipboardData', { value: { files: [], getData: (type: string) => type === 'text/plain' ? text : '' } });
+      app.editor.view.pasteText(text, event as ClipboardEvent);
+    });
+    assert.equal(app.container.querySelectorAll('input[type="checkbox"]').length, 3);
+    assert.equal(app.container.querySelectorAll('input[type="checkbox"]:checked').length, 1);
+    await act(async () => { (app.container.querySelector('input[type="checkbox"]') as HTMLInputElement).click(); });
+    original = app.editor.getJSON();
+    assert.equal(app.editor.state.doc.firstChild!.firstChild!.attrs.checked, true);
+  } finally { await app.close(); }
+  let saved: any;
+  const restored = await mount(async data => { saved = data; }, id);
+  try {
+    assert.deepEqual(restored.editor.getJSON(), original);
+    assert.equal(restored.container.querySelectorAll('input[type="checkbox"]:checked').length, 2);
+    await act(async () => { restored.submit().click(); await tick(); });
+    assert.deepEqual(saved.contentJson, original);
+    assert.ok(!saved.contentText.includes('- [ ]'));
+    assert.match(saved.contentText, /first <> task/);
+  } finally { await restored.close(); localStorage.clear(); }
+});

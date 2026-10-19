@@ -29,6 +29,7 @@ import { SlashCommandMenu, LOG_TEMPLATE } from './SlashCommandMenu';
 import { BlockDragHandle } from './BlockDragHandle';
 import { moveBlock, duplicateBlock } from './utils/block-movement';
 import { SlashCommand } from './extensions/SlashCommand';
+import { MarkdownTaskPaste } from './extensions/MarkdownTaskPaste';
 import { getDraggedBlockPos } from './utils/block-drag';
 import { useSlashCommand } from './useSlashCommand';
 import { parseDocument, snapshotKey, type DocumentSnapshot } from './utils/document';
@@ -156,6 +157,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       ColumnList,
       Column,
       SlashCommand,
+      MarkdownTaskPaste,
       ToggleNode,
       BlockSelection,
     ],
