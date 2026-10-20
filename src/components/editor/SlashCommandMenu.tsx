@@ -200,31 +200,22 @@ const ITEMS: SlashItem[] = [
       }).run();
     },
   },
-  {
-    id: "columns",
-    title: '双栏并排布局 (2 Columns)',
-    description: '在同一行并排显示两个 Block 块 (支持图表、卡片并列)',
-    keywords: ['column', 'fenlan', '2', 'columns', 'bingpai', 'grid'],
+  ...[2, 3, 4].map((count): SlashItem => ({
+    id: count === 2 ? 'columns' : `columns${count}`,
+    title: `${count} 栏并排布局`,
+    description: `在同一行并排显示 ${count} 列区块`,
+    keywords: ['column', 'columns', 'fenlan', 'bingpai', 'grid', String(count), `${count}lan`, `${count} columns`],
     icon: Layout,
     action: (editor, range) => {
       const chain = editor.chain().focus();
       if (range) chain.deleteRange(range);
       chain.insertContent({
         type: 'columnList',
-        attrs: { columns: 2 },
-        content: [
-          {
-            type: 'column',
-            content: [{ type: 'paragraph' }],
-          },
-          {
-            type: 'column',
-            content: [{ type: 'paragraph' }],
-          },
-        ],
+        attrs: { columns: count },
+        content: Array.from({ length: count }, () => ({ type: 'column', content: [{ type: 'paragraph' }] })),
       }).run();
     },
-  },
+  })),
   {
     id: "embed",
     title: 'Figma / 网页嵌入 (Embed)',
@@ -343,16 +334,16 @@ const ITEMS: SlashItem[] = [
 ];
 
 export const LOG_TEMPLATE = ITEMS.find(item => item.id === 'template')!;
-const COMMAND_ORDER = ['paragraph', 'h1', 'h2', 'h3', 'taskList', 'bulletList', 'orderedList', 'toggle', 'blockquote', 'codeBlock', 'divider', 'image', 'html', 'table', 'columns', 'mermaid', 'whiteboard', 'embed', 'tip', 'info', 'success', 'blocker', 'template'];
+const COMMAND_ORDER = ['paragraph', 'h1', 'h2', 'h3', 'taskList', 'bulletList', 'orderedList', 'toggle', 'blockquote', 'codeBlock', 'divider', 'image', 'html', 'table', 'columns', 'columns3', 'columns4', 'mermaid', 'whiteboard', 'embed', 'tip', 'info', 'success', 'blocker', 'template'];
 const LABELS: Record<string, [string, string]> = {
   paragraph: ['文本', '从一段普通文字开始'], h1: ['标题 1', '用于页面的主要章节'], h2: ['标题 2', '用于章节内的小节'], h3: ['标题 3', '用于更细一级的内容'],
   taskList: ['待办事项', '跟踪任务，完成后勾选'], bulletList: ['项目列表', '用圆点列出几件事情'], orderedList: ['编号列表', '按顺序记录步骤或要点'],
   blockquote: ['引用', '突出引用或重要观点'], codeBlock: ['代码', '保留缩进和原始格式'], divider: ['分割线', '为内容划分清晰的段落'],
-  blocker: ['阻塞事项', '标记风险和需要协调的事项'], columns: ['双栏', '将内容并排放置'], mermaid: ['流程图', '用 Mermaid 描述流程与结构'],
+  blocker: ['阻塞事项', '标记风险和需要协调的事项'], columns: ['双栏', '将内容并排成两列'], columns3: ['三栏', '将内容并排成三列'], columns4: ['四栏', '将内容并排成四列'], mermaid: ['流程图', '用 Mermaid 描述流程与结构'],
   whiteboard: ['白板', '画一个草图或解释想法'], embed: ['嵌入链接', '添加 Figma、视频或网页'], template: ['日志模板', '今日进展、阻塞事项和明日计划'],
 };
 export const SLASH_ITEMS = [...ITEMS].sort((a, b) => COMMAND_ORDER.indexOf(a.id) - COMMAND_ORDER.indexOf(b.id)).map(item => ({ ...item, title: LABELS[item.id]?.[0] || item.title, description: LABELS[item.id]?.[1] || item.description }));
-const commandGroup = (id: string) => ['template', 'blocker', 'tip', 'info', 'success'].includes(id) ? '工作日志' : ['image', 'html', 'table', 'columns', 'mermaid', 'whiteboard', 'embed'].includes(id) ? '布局与内容' : '基础块';
+const commandGroup = (id: string) => ['template', 'blocker', 'tip', 'info', 'success'].includes(id) ? '工作日志' : ['image', 'html', 'table', 'columns', 'columns3', 'columns4', 'mermaid', 'whiteboard', 'embed'].includes(id) ? '布局与内容' : '基础块';
 
 export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   editor,

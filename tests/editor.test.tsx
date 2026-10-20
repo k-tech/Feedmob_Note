@@ -96,14 +96,16 @@ function atPoint(element: HTMLElement, run: () => void) {
   }
 }
 
-test('the middle of a wide block merges right and corners keep vertical ordering', () => {
+test('the middle of a block reorders by its vertical half; only the side rails create columns', () => {
   const editor = make([p('source'), p('between'), p('wide target')]);
   const target = editor.view.dom.querySelectorAll('p')[2] as HTMLElement;
   rect(target, 100, 200, 1000, 40);
   atPoint(target, () => {
     const sourcePos = posOf(editor, 'source');
-    assert.equal(computeBlockDropTarget(editor.view, 250, 225, { sourcePos })?.zone, 'right');
-    assert.equal(computeBlockDropTarget(editor.view, 110, 202, { sourcePos })?.zone, 'above');
+    assert.equal(computeBlockDropTarget(editor.view, 250, 215, { sourcePos })?.zone, 'above');
+    assert.equal(computeBlockDropTarget(editor.view, 600, 225, { sourcePos })?.zone, 'below');
+    assert.equal(computeBlockDropTarget(editor.view, 930, 225, { sourcePos })?.zone, 'below');
+    assert.equal(computeBlockDropTarget(editor.view, 960, 215, { sourcePos })?.zone, 'right');
     assert.equal(computeBlockDropTarget(editor.view, 110, 220, { sourcePos })?.zone, 'left');
   });
 });

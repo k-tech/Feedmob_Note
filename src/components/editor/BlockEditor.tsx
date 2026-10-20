@@ -30,6 +30,9 @@ import { BlockDragHandle } from './BlockDragHandle';
 import { moveBlock, duplicateBlock } from './utils/block-movement';
 import { SlashCommand } from './extensions/SlashCommand';
 import { EditorClipboard } from './extensions/EditorClipboard';
+import { BlockKeymap } from './extensions/BlockKeymap';
+import { MarkdownShortcuts } from './extensions/MarkdownShortcuts';
+import { ListJoin } from './extensions/ListJoin';
 import { serializeBlocks } from './utils/clipboard';
 import { getDraggedBlockPos } from './utils/block-drag';
 import { useSlashCommand } from './useSlashCommand';
@@ -132,7 +135,8 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       Highlight.configure({
         multicolor: true,
       }),
-      Link.configure({
+      // Typing after a link continues as plain text, as in Notion.
+      Link.extend({ inclusive: () => false }).configure({
         openOnClick: false,
       }),
       Placeholder.configure({
@@ -161,6 +165,9 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       EditorClipboard,
       ToggleNode,
       BlockSelection,
+      BlockKeymap,
+      MarkdownShortcuts,
+      ListJoin,
     ],
     content: initialSnapshot.contentJson,
     editorProps: {
@@ -451,7 +458,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       {helpOpen && <div className="keyboard-help" role="region" aria-label="编辑器快捷键">
         <div className="flex items-center justify-between mb-3"><span className="font-medium">让记录跟上思路</span><button type="button" aria-label="关闭快捷键" className="icon-button" onClick={() => setHelpOpen(false)}><X size={16} /></button></div>
         {[
-          ['/', '搜索并插入块'], ['Enter / Shift Enter', '新建块 / 块内换行'], ['Esc → Shift ↑/↓', '选择块 / 扩展块选区'], ['⌘ / Ctrl D', '复制所选块'], ['Alt ↑/↓', '上下移动块'], ['⌘ / Ctrl /', '打开块操作菜单'], ['⌘ / Ctrl Enter', '提交工作日志'],
+          ['/', '搜索并插入块'], ['Enter / Shift Enter', '新建块 / 块内换行'], ['Tab / Shift Tab', '缩进到上方列表或折叠块 / 取消缩进'], ['# / - / [] / > / ```', 'Markdown 自动转换为标题、列表、待办、引用、代码'], ['Esc → Shift ↑/↓', '选择块 / 扩展块选区'], ['⌘ / Ctrl D', '复制所选块'], ['Alt ↑/↓', '上下移动块'], ['⌘ / Ctrl /', '打开块操作菜单'], ['⌘ / Ctrl Enter', '提交工作日志'],
         ].map(([key, text]) => <div key={key} className="flex justify-between gap-4 py-1.5"><span className="text-[var(--muted-foreground)]">{text}</span><kbd>{key}</kbd></div>)}
         <p className="mt-3 text-xs text-[var(--muted-foreground)]">草稿自动保存在此浏览器；提交后写入工作区。拖到块的左右边缘可以分栏。</p>
       </div>}

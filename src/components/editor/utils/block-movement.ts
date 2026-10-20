@@ -357,8 +357,15 @@ export interface BlockDropTarget {
   };
 }
 
-/** Central content merges right; only a narrow left rail chooses left. */
+/**
+ * Notion-style zones: the vertical half of a block decides above/below.
+ * Only a narrow left rail or the right quarter of a block creates columns,
+ * so an ordinary reorder drag never turns into an accidental column row.
+ */
 const LEFT_SIDE_ZONE = 32;
+const RIGHT_SIDE_RATIO = 0.25;
+const RIGHT_SIDE_MIN = 40;
+const RIGHT_SIDE_MAX = 160;
 const ROW_EDGE_ZONE = 7;
 const GUIDE_SIZE = 3.5;
 
@@ -400,20 +407,17 @@ export function computeBlockDropTarget(
     scope = 'row';
     zone = clientY < (rect.top + rect.bottom) / 2 ? 'above' : 'below';
   } else {
-    const verticalBand = Math.min(10, rect.height * 0.22);
     const leftBand = Math.min(LEFT_SIDE_ZONE, rect.width / 5);
-    // Top/bottom edges retain vertical ordering. The entire middle of a
-    // block is a right-column target, without travelling to its far edge.
+    const rightBand = Math.min(rect.width / 3, Math.max(RIGHT_SIDE_MIN, Math.min(RIGHT_SIDE_MAX, rect.width * RIGHT_SIDE_RATIO)));
     const columnRect = hit.column?.getBoundingClientRect();
     if (gap) zone = gap.zone;
     else if (columnRect && clientX >= columnRect.left && clientX <= columnRect.right && clientY > rect.bottom) zone = 'below';
     else if (columnRect && clientX >= columnRect.left && clientX <= columnRect.right && clientY < rect.top) zone = 'above';
     else if (clientX < rect.left) zone = 'left';
     else if (clientX > rect.right) zone = 'right';
-    else if (clientY < rect.top + verticalBand) zone = 'above';
-    else if (clientY > rect.bottom - verticalBand) zone = 'below';
     else if (clientX <= rect.left + leftBand) zone = 'left';
-    else zone = 'right';
+    else if (clientX >= rect.right - rightBand) zone = 'right';
+    else zone = clientY < rect.top + rect.height / 2 ? 'above' : 'below';
   }
 
   const sourcePos = options?.sourcePos;

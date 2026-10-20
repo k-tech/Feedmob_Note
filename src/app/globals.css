@@ -135,15 +135,18 @@ kbd { font-family: inherit; white-space: nowrap; font-size: 11px; color: var(--m
 .tiptap .column-content { display: flow-root; min-width: 0; }
 .tiptap [data-type="column"] > :first-child, .tiptap .column-content > :first-child, .tiptap .column-content > .react-renderer:first-child > [data-node-view-wrapper] { margin-top: 0; }
 .tiptap .column-content:has(> p.is-empty:only-child) { outline: 1px dashed var(--border); outline-offset: 3px; border-radius: 4px; }
-.column-add-block { display: block; width: 100%; min-height: 30px; padding: 3px 6px; margin-top: 4px; text-align: left; font-size: 12px; line-height: 24px; border-radius: 4px; color: var(--muted-foreground); opacity: 0; cursor: text; }
-.column-block:hover > .column-add-block, .column-block:focus-within > .column-add-block, .column-add-block:focus-visible { opacity: 1; }
+/* Like Notion, a column ends with its content: the row reserves no blank
+   footer. Clicking the free space below a shorter column adds a block there;
+   touch layouts keep an explicit button. */
+.column-add-block { display: none; width: 100%; min-height: 30px; padding: 3px 6px; margin-top: 4px; text-align: left; font-size: 12px; line-height: 24px; border-radius: 4px; color: var(--muted-foreground); cursor: text; }
 .column-add-block:hover { background: var(--muted); }
+.tiptap [data-type="column"] { cursor: text; }
 .column-resize-handle { position: absolute; top: 0; bottom: 0; right: -26px; width: 12px; z-index: 9; cursor: col-resize; touch-action: none; outline: none; }
 .column-resize-handle::after { content: ''; position: absolute; top: 0; bottom: 0; left: 5px; width: 2px; border-radius: 2px; background: var(--muted-foreground); opacity: 0; }
-.column-resize-handle:hover::after, .column-resize-handle:focus-visible::after, .is-resizing-columns > .column-block > .column-resize-handle::after { opacity: .55; }
+.column-resize-handle:hover::after, .column-resize-handle:focus-visible::after, .column-block.is-resizing > .column-resize-handle::after { opacity: .55; }
 .column-block:last-child > .column-resize-handle { display: none; }
 .column-add-block[hidden], .column-resize-handle[hidden] { display: none; }
-.is-resizing-columns > .column-block { user-select: none; }
+.is-resizing-columns .column-block { user-select: none; }
 .is-resizing-columns iframe { pointer-events: none; }
 .resizable-block { position: relative; min-width: 0; max-width: 100%; margin-left: 0; }
 .block-resize-side { position: absolute; top: 50%; width: 7px; height: 34px; margin-top: -17px; border: 1px solid var(--background); border-radius: 4px; background: var(--muted-foreground); cursor: ew-resize; opacity: 0; touch-action: none; z-index: 8; }
@@ -193,7 +196,7 @@ kbd { font-family: inherit; white-space: nowrap; font-size: 11px; color: var(--m
   .tiptap [data-type="column-list"] { flex-direction: column; gap: 12px; }
   .tiptap [data-type="column"] { width: 100%; flex: none !important; }
   .column-resize-handle { display: none; }
-  .column-add-block { opacity: 1; min-height: 36px; }
+  .column-add-block { display: block; min-height: 36px; }
   .document-end { opacity: 1; }
   .editor-footer { padding: 10px 16px; }
   .keyboard-help { right: 16px; }

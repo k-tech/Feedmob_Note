@@ -75,17 +75,24 @@ export function columnView({ node, editor, getPos }: NodeViewRendererProps) {
     const minimum = Math.min(120, width * 0.25);
     const total = columnWeight(pair.left.attrs.width) + columnWeight(pair.right.attrs.width);
     let ratio = leftRect.width / width;
-    dom.parentElement?.classList.add('is-resizing-columns');
+    // Never mark the row itself: it is ProseMirror-managed DOM, and an
+    // attribute change there re-renders the row and destroys this view.
+    const body = dom.ownerDocument.body;
+    body.classList.add('is-resizing-columns');
+    dom.classList.add('is-resizing');
     cancelResize = trackResize(event, handle, x => {
       ratio = Math.max(minimum / width, Math.min(1 - minimum / width, (leftRect.width + x - event.clientX) / width));
       dom.style.flex = `${total * ratio} 1 0%`;
       pair.rightDOM.style.flex = `${total * (1 - ratio)} 1 0%`;
     }, cancelled => {
       cancelResize = undefined;
-      dom.parentElement?.classList.remove('is-resizing-columns');
+      body.classList.remove('is-resizing-columns');
+      dom.classList.remove('is-resizing');
       sync();
       pair.rightDOM.style.flex = `${columnWeight(pair.right.attrs.width)} 1 0%`;
       if (!cancelled) apply(pair, ratio);
+      // Keep Cmd/Ctrl+Z working right after the drag, as in Notion.
+      if (!editor.isDestroyed) editor.view.focus();
     });
   });
   handle.addEventListener('dblclick', event => { event.preventDefault(); const pair = context(); if (pair) apply(pair, 0.5); });

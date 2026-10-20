@@ -53,7 +53,11 @@ export function ResizableBlock({ node, editor, getPos, children, className, allo
       element.classList.remove('is-resizing-block');
       element.style.width = oldWidth;
       if (oldHeight) element.style.setProperty('--block-height', oldHeight); else element.style.removeProperty('--block-height');
-      if (!cancelled && moved && editor.state.doc.eq(before)) commitNodeSize(editor, getPos, node.type.name, { blockWidth: nextWidth, blockHeight: nextHeight ?? null });
+      if (!cancelled && moved && editor.state.doc.eq(before)) {
+        commitNodeSize(editor, getPos, node.type.name, { blockWidth: nextWidth, blockHeight: nextHeight ?? null });
+        // Pointer resizing leaves focus in the document so undo works next.
+        if (!editor.isDestroyed) editor.view.focus();
+      }
     });
   };
   const keyboard = (event: React.KeyboardEvent<HTMLButtonElement>) => {

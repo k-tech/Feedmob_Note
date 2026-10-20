@@ -4,11 +4,14 @@ import { Fragment } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
 import { findWrapping } from '@tiptap/pm/transform';
 
-/** Typing '- ' already creates a bullet; finishing '[ ] ' converts that item. */
+/**
+ * Typing '- ' already creates a bullet; finishing '[ ] ' converts that item.
+ * Notion's '[] ' and the Chinese IME's '【】 ' create an unchecked task too.
+ */
 export const TaskItem = BaseTaskItem.extend({
   addInputRules() {
     return [new InputRule({
-      find: /^\s*(?:[-+*]\s)?\[([ xX])\]\s$/,
+      find: /^\s*(?:[-+*]\s)?[[【]([ xX]?)[\]】]\s$/,
       handler: ({ state, range, match }) => {
         if (state.selection.$from.parent.type.name !== 'paragraph') return null;
         const checked = match[1].toLowerCase() === 'x';
