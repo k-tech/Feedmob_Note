@@ -6,7 +6,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Code2, Eye, GitGraph } from 'lucide-react';
 
 const MermaidComponent = (props: NodeViewProps) => {
-  const { node, updateAttributes } = props;
+  const { node, updateAttributes, editor } = props;
+  const editable = editor.isEditable;
   const [isEditing, setIsEditing] = useState(false);
   const [code, setCode] = useState(
     node.attrs.code ||
@@ -62,8 +63,8 @@ const MermaidComponent = (props: NodeViewProps) => {
 
   return (
     <ResizableBlock {...props} className="my-4 border border-[var(--border)] rounded-md overflow-hidden bg-[var(--muted)]">
-      {/* Header bar */}
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[var(--muted)] text-sm text-[var(--foreground)] border-b border-[var(--border)]">
+      {/* Header bar: readers see only the rendered diagram */}
+      {editable && <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[var(--muted)] text-sm text-[var(--foreground)] border-b border-[var(--border)]">
         <div className="flex items-center gap-2 font-medium">
           <GitGraph className="w-4 h-4 text-[var(--muted-foreground)]" />
           <span>Mermaid 图表</span>
@@ -82,10 +83,10 @@ const MermaidComponent = (props: NodeViewProps) => {
             {isEditing ? '预览图表' : '编辑源码'}
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Body */}
-      {isEditing ? (
+      {editable && isEditing ? (
         <div className="p-4">
           <textarea
             aria-label="Mermaid 图表源码"

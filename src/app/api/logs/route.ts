@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUser, forbiddenIdentity } from '@/lib/server-user';
 import { parseDocument } from '@/components/editor/utils/document';
+import { LOG_INCLUDE } from '@/lib/log-query';
 
 export async function GET(req: Request) {
   try {
@@ -58,31 +59,7 @@ export async function GET(req: Request) {
 
     const logs = await prisma.workLog.findMany({
       where,
-      include: {
-        user: {
-          include: {
-            team: true,
-          },
-        },
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-        reactions: {
-          include: {
-            user: true,
-          },
-        },
-        comments: {
-          include: {
-            user: true,
-          },
-          orderBy: {
-            createdAt: 'asc',
-          },
-        },
-      },
+      include: LOG_INCLUDE,
       orderBy: [
         { date: 'desc' },
         { createdAt: 'desc' },
@@ -174,12 +151,7 @@ export async function POST(req: Request) {
       // Return the updated log with relations
       return tx.workLog.findUnique({
         where: { id: workLog.id },
-        include: {
-          user: { include: { team: true } },
-          tags: { include: { tag: true } },
-          reactions: { include: { user: true } },
-          comments: { include: { user: true } },
-        },
+        include: LOG_INCLUDE,
       });
 
     });

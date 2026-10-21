@@ -20,10 +20,12 @@ function ImageComponent(props: NodeViewProps) {
     if (!next) { setError('请输入完整的 http:// 或 https:// 图片链接。'); return; }
     updateAttributes({ src: next, error: '', uploadId: null }); setError(''); setEditing(false);
   };
-  return <ResizableBlock {...props} allowHeight={false} className="media-block image-block">
-    <div className="media-block-toolbar"><span><ImagePlus size={15} />图片</span><button type="button" className="icon-button" aria-label="修改图片" aria-expanded={editing} onClick={() => setEditing(!editing)}><Settings size={15} /></button></div>
+  const editable = editor.isEditable;
+  if (!editable && !src) return null;
+  return <ResizableBlock {...props} allowHeight={false} className={`media-block image-block${editable ? '' : ' is-read-only'}`}>
+    {editable && <div className="media-block-toolbar"><span><ImagePlus size={15} />图片</span><button type="button" className="icon-button" aria-label="修改图片" aria-expanded={editing} onClick={() => setEditing(!editing)}><Settings size={15} /></button></div>}
     {src && <figure><img src={src} alt={node.attrs.alt || ''} loading="lazy" referrerPolicy="no-referrer" onLoad={() => setFailed(false)} onError={() => setFailed(true)} className="journal-image" />{failed && <p role="alert" className="media-error">图片无法加载，请检查链接或选择本地图片。</p>}</figure>}
-    {editing && <div className="media-settings">
+    {editable && editing && <div className="media-settings">
       <label className="quiet-button media-file-button"><ImagePlus size={16} />选择图片<input type="file" accept={IMAGE_ACCEPT} multiple aria-label="选择本地图片" disabled={!!node.attrs.uploadId} onChange={event => {
         const files = Array.from(event.target.files || []); event.target.value = '';
         const pos = getPos();
@@ -37,7 +39,8 @@ function ImageComponent(props: NodeViewProps) {
     </div>}
     {node.attrs.uploadId && <p role="status" className="media-hint px-3 pb-3">正在处理图片…</p>}
     {(error || node.attrs.error) && <p role="alert" className="media-error">{error || node.attrs.error}</p>}
-    {src && <input className="media-caption" aria-label="图片说明" placeholder="添加图片说明…" value={node.attrs.caption || ''} onChange={event => updateAttributes({ caption: event.target.value })} />}
+    {src && (editable ? <input className="media-caption" aria-label="图片说明" placeholder="添加图片说明…" value={node.attrs.caption || ''} onChange={event => updateAttributes({ caption: event.target.value })} />
+      : node.attrs.caption && <p className="media-caption">{node.attrs.caption}</p>)}
   </ResizableBlock>;
 }
 

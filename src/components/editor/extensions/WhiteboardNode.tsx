@@ -50,8 +50,9 @@ const WhiteboardComponent = (props: NodeViewProps) => {
     };
   };
 
+  const editable = editor.isEditable;
   const startDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || !editor.isEditable) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     drawingRef.current = true;
@@ -123,8 +124,8 @@ const WhiteboardComponent = (props: NodeViewProps) => {
 
   return (
     <ResizableBlock {...props} className="my-4 border border-[var(--border)] rounded-md overflow-hidden bg-[var(--background)]">
-      {/* Header bar */}
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[var(--muted)] text-sm text-[var(--foreground)] border-b border-[var(--border)]">
+      {/* Header bar: drawing tools belong to the author */}
+      {editable && <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[var(--muted)] text-sm text-[var(--foreground)] border-b border-[var(--border)]">
         <div className="flex items-center gap-2">
           <Palette className="w-4 h-4 text-[var(--muted-foreground)]" />
           <span className="font-medium text-[var(--foreground)]">草图白板</span>
@@ -190,7 +191,7 @@ const WhiteboardComponent = (props: NodeViewProps) => {
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
-      </div>
+      </div>}
 
 
       {/* Canvas Area */}
@@ -204,8 +205,8 @@ const WhiteboardComponent = (props: NodeViewProps) => {
           onPointerMove={draw}
           onPointerUp={stopDraw}
           onPointerCancel={stopDraw}
-          style={{ touchAction: 'none' }}
-          className="resizable-block-body whiteboard-canvas border border-dashed border-[var(--border)] bg-[var(--background)] rounded-md cursor-crosshair"
+          style={{ touchAction: editable ? 'none' : 'auto' }}
+          className={`resizable-block-body whiteboard-canvas border border-dashed border-[var(--border)] bg-[var(--background)] rounded-md ${editable ? 'cursor-crosshair' : ''}`}
         />
       </div>
     </ResizableBlock>

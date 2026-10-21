@@ -241,3 +241,20 @@ kbd { font-family: inherit; white-space: nowrap; font-size: 11px; color: var(--m
 .tiptap .custom-callout.callout-success { background: #edf5ef; color: #386341; }
 .dark .tiptap .custom-callout.callout-success { background: #263329; color: #b0d2b6; }
 @media (max-width: 640px) { .media-input-row input { flex-basis: 100%; } .media-block-toolbar .quiet-button { font-size: 12px; } }
+
+/* Read-only log rendering (team feed and log page): the editor's document
+   styles without its editing affordances. */
+.log-document .tiptap { min-height: 0; }
+.log-document.is-fallback { white-space: pre-line; overflow-wrap: anywhere; font-size: 15px; line-height: 1.65; }
+.log-document .tiptap a { cursor: pointer; }
+.log-document .tiptap ul[data-type="taskList"] input[type="checkbox"] { pointer-events: none; }
+.log-preview { position: relative; max-height: 420px; overflow: hidden; }
+.log-preview.is-expanded { max-height: none; }
+.log-preview.is-clipped::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 80px; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--background)); }
+.log-preview .tiptap { font-size: 15px; }
+.log-preview-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.log-card-title { color: var(--foreground); border-radius: 3px; }
+.log-card-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.log-open-link { border: 1px solid var(--border); }
+.log-page-icon { font-size: 42px; line-height: 1; margin-bottom: 14px; }
+.log-page-title { font-size: clamp(28px, 3.4vw, 38px); font-weight: 700; line-height: 1.25; letter-spacing: -.035em; margin-bottom: 18px; overflow-wrap: anywhere; }

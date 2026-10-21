@@ -3,28 +3,14 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { SelectionToolbar } from './SelectionToolbar';
-import { ToggleNode } from './extensions/ToggleNode';
 import { BlockSelection, handleBlockSelectionKeyDown } from './extensions/BlockSelection';
 import { EditorLinkPopover } from './EditorLinkPopover';
 import { BlockSelectionToolbar } from './BlockSelectionToolbar';
-import StarterKit from '@tiptap/starter-kit';
-import TaskList from '@tiptap/extension-task-list';
-import { TaskItem } from './extensions/TaskItem';
 import Placeholder from '@tiptap/extension-placeholder';
-import Underline from '@tiptap/extension-underline';
-import Highlight from '@tiptap/extension-highlight';
-import Link from '@tiptap/extension-link';
+import { documentExtensions } from './extensions/document';
 
-import { CalloutNode } from './extensions/CalloutNode';
-import { MermaidNode } from './extensions/MermaidNode';
-import { WhiteboardNode } from './extensions/WhiteboardNode';
-import { EmbedNode } from './extensions/EmbedNode';
-import { ImageNode } from './extensions/ImageNode';
-import { HtmlNode } from './extensions/HtmlNode';
-import { TableExtensions } from './extensions/TableExtensions';
 import { TableToolbar } from './TableToolbar';
 import { hasPendingImages } from './utils/image';
-import { ColumnList, Column } from './extensions/ColumnsExtension';
 import { SlashCommandMenu, LOG_TEMPLATE } from './SlashCommandMenu';
 import { BlockDragHandle } from './BlockDragHandle';
 import { moveBlock, duplicateBlock } from './utils/block-movement';
@@ -120,25 +106,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({
-        // A second native cursor contradicts the column/group drop preview.
-        dropcursor: false,
-        heading: {
-          levels: [1, 2, 3],
-        },
-      }),
-      TaskList,
-      TaskItem.configure({
-        nested: true,
-      }),
-      Underline,
-      Highlight.configure({
-        multicolor: true,
-      }),
-      // Typing after a link continues as plain text, as in Notion.
-      Link.extend({ inclusive: () => false }).configure({
-        openOnClick: false,
-      }),
+      ...documentExtensions({ editable: true }),
       Placeholder.configure({
         includeChildren: true,
         showOnlyCurrent: false,
@@ -152,18 +120,8 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
           return '输入文字，或按 / 插入块';
         },
       }),
-      CalloutNode,
-      MermaidNode,
-      WhiteboardNode,
-      EmbedNode,
-      ImageNode,
-      HtmlNode,
-      ...TableExtensions,
-      ColumnList,
-      Column,
       SlashCommand,
       EditorClipboard,
-      ToggleNode,
       BlockSelection,
       BlockKeymap,
       MarkdownShortcuts,

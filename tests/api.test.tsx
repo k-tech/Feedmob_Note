@@ -51,6 +51,19 @@ test('API saves tags atomically, deduplicates names and rolls back a failed asso
     assert.equal((await POST(request({ contentJson: richDocument }))).status, 200);
     const rich = await client.workLog.findFirst();
     assert.deepEqual(JSON.parse(rich!.contentJson!), richDocument);
+    // The single-log reader returns the stored document with its relations.
+    const { GET: getLog } = await import('../src/app/api/logs/[id]/route');
+    const read = (id: string) => getLog(new Request('http://localhost/api/logs/' + id), { params: Promise.resolve({ id }) });
+    const found = await read(rich!.id);
+    assert.equal(found.status, 200);
+    const body = await found.json();
+    assert.deepEqual(JSON.parse(body.contentJson), richDocument);
+    assert.equal(body.user.id, 'test-user');
+    assert.ok(Array.isArray(body.comments) && Array.isArray(body.reactions));
+    assert.equal((await read('missing-log')).status, 404);
+    session.mock.mockImplementation(async () => null);
+    assert.equal((await read(rich!.id)).status, 401);
+    session.mock.mockImplementation(async () => ({ user: { email: 'test@example.invalid' } }));
     const invalid = await POST(request({ contentJson: '{invalid json' }));
     assert.equal(invalid.status, 400);
   } finally {

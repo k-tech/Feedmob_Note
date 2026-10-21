@@ -7,7 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { ExternalLink, Globe, Layout, Play, Settings } from 'lucide-react';
 
 const EmbedComponent = (props: NodeViewProps) => {
-  const { node, updateAttributes } = props;
+  const { node, updateAttributes, editor } = props;
+  const editable = editor.isEditable;
   const [isEditing, setIsEditing] = useState(!node.attrs.src);
   const [url, setUrl] = useState(node.attrs.src || '');
   const [type, setType] = useState<'figma' | 'video' | 'bookmark'>(node.attrs.type || 'bookmark');
@@ -40,7 +41,7 @@ const EmbedComponent = (props: NodeViewProps) => {
           {type === 'bookmark' && <Globe className="w-4 h-4 text-[var(--muted-foreground)]" />}
           <span>{type === 'figma' ? 'Figma 设计稿' : type === 'video' ? '视频' : '外部书签'}</span>
         </div>
-        <button
+        {editable && <button
           type="button"
           onClick={() => setIsEditing(!isEditing)}
           aria-label={isEditing ? '收起链接设置' : '修改嵌入链接'}
@@ -48,10 +49,10 @@ const EmbedComponent = (props: NodeViewProps) => {
           className="p-1.5 hover:bg-[var(--muted)] rounded text-[var(--muted-foreground)]"
         >
           <Settings className="w-4 h-4" />
-        </button>
+        </button>}
       </div>
 
-      {isEditing ? (
+      {editable && isEditing ? (
         <div className="p-4 bg-[var(--background)] flex flex-col gap-2">
           <div className="flex gap-2">
             <input
@@ -75,7 +76,7 @@ const EmbedComponent = (props: NodeViewProps) => {
         </div>
       ) : (
         <div className="p-2.5 bg-[var(--background)]">
-          {!preview ? <p role="alert" className="p-3 text-red-600">链接无效，请点击设置修改。</p> : preview.isVideoFile ? (
+          {!preview ? <p role="alert" className="p-3 text-red-600">{editable ? '链接无效，请点击设置修改。' : '未设置有效链接。'}</p> : preview.isVideoFile ? (
             <video src={preview.src} controls className="resizable-block-body embed-video w-full" />
           ) : preview.type === 'figma' || preview.type === 'video' ? (
             <div className="resizable-block-body embed-frame w-full rounded-md overflow-hidden border border-[var(--border)]">

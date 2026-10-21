@@ -4,7 +4,7 @@ import type { NodeViewProps } from '@tiptap/react';
 import React from 'react';
 import { AlertTriangle, CheckCircle, Info, Lightbulb } from 'lucide-react';
 
-const CalloutComponent = ({ node, updateAttributes }: NodeViewProps) => {
+const CalloutComponent = ({ node, updateAttributes, editor }: NodeViewProps) => {
   const type = node.attrs.type || 'blocker';
 
   const typeConfig: Record<string, { icon: any; label: string }> = {
@@ -33,7 +33,7 @@ const CalloutComponent = ({ node, updateAttributes }: NodeViewProps) => {
     <NodeViewWrapper className={`custom-callout callout-${type} border border-[var(--border)] transition-colors`}>
       <div contentEditable={false} className="flex flex-col items-center select-none pt-0.5 shrink-0">
         <Icon className="w-5 h-5 text-current" aria-hidden="true" />
-        <select
+        {editor.isEditable ? <select
           aria-label="提示块类型"
           value={type}
           onChange={(e) => updateAttributes({ type: e.target.value })}
@@ -44,6 +44,7 @@ const CalloutComponent = ({ node, updateAttributes }: NodeViewProps) => {
           <option value="info">信息</option>
           <option value="success">目标</option>
         </select>
+          : <span className="mt-1 text-xs font-medium text-[var(--muted-foreground)]">{{ blocker: '卡点', tip: '提示', info: '信息', success: '目标' }[type as string] ?? '卡点'}</span>}
       </div>
       <div className="flex-1 min-w-0 text-base leading-relaxed">
         <NodeViewContent className="outline-none text-[var(--foreground)]" />

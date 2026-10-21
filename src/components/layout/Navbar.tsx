@@ -76,10 +76,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
         </button>
         <span className="hidden items-center gap-1.5 text-[var(--muted-foreground)] sm:flex"><MineworkMark className="h-5 w-5" />Minework</span>
         <span aria-hidden="true" className="mx-1 hidden text-[var(--muted-foreground)] sm:inline">/</span>
-        <span className="truncate text-[var(--foreground)]">{pageLabels[pathname] || '工作区'}</span>
+        <span className="truncate text-[var(--foreground)]">{pageLabels[pathname] || (pathname.startsWith('/logs/') ? '日志详情' : '工作区')}</span>
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        {teams.length > 0 && pathname !== '/' && <select aria-label="筛选团队" value={selectedTeamId || ''} onChange={event => setSelectedTeamId(event.target.value || null)} className="hidden min-h-9 max-w-40 cursor-pointer rounded border border-[var(--border)] bg-[var(--background)] px-2 text-xs text-[var(--muted-foreground)] sm:block">
+        {teams.length > 0 && pathname !== '/' && !pathname.startsWith('/logs/') && <select aria-label="筛选团队" value={selectedTeamId || ''} onChange={event => setSelectedTeamId(event.target.value || null)} className="hidden min-h-9 max-w-40 cursor-pointer rounded border border-[var(--border)] bg-[var(--background)] px-2 text-xs text-[var(--muted-foreground)] sm:block">
           <option value="">全部团队</option>{teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
         </select>}
         {onSearch && <div className="relative hidden w-44 lg:block"><Search size={14} aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" /><input aria-label="搜索日志" type="search" value={searchQuery} onChange={event => { setSearchQuery(event.target.value); onSearch(event.target.value); }} placeholder="搜索日志…" className="h-9 w-full rounded border border-[var(--border)] bg-[var(--background)] pl-8 pr-2 text-sm" /></div>}

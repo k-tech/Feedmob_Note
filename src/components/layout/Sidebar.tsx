@@ -70,11 +70,15 @@ export const Sidebar: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-2.5 pb-6 pt-3">
         <p className="mb-2 px-2.5 text-xs font-medium text-[var(--muted-foreground)]">工作区</p>
         <nav aria-label="主要导航" className="flex flex-col gap-0.5">
-          {navItems.map(({ label, href, icon: Icon }) => (
-            <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} onClick={() => setMobileSidebarOpen(false)} className={`flex min-h-10 items-center gap-2.5 rounded px-2.5 text-sm transition-colors ${pathname === href ? 'bg-[var(--sidebar-accent)] font-medium text-[var(--foreground)]' : 'text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--foreground)]'}`}>
+          {navItems.map(({ label, href, icon: Icon }) => {
+            // A single log is opened from the team feed and belongs to it.
+            const active = pathname === href || (href === '/stream' && pathname.startsWith('/logs/'));
+            return (
+            <Link key={href} href={href} aria-current={active ? 'page' : undefined} onClick={() => setMobileSidebarOpen(false)} className={`flex min-h-10 items-center gap-2.5 rounded px-2.5 text-sm transition-colors ${active ? 'bg-[var(--sidebar-accent)] font-medium text-[var(--foreground)]' : 'text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--foreground)]'}`}>
               <Icon size={17} strokeWidth={1.6} aria-hidden="true" /><span>{label}</span>
             </Link>
-          ))}
+            );
+          })}
           {currentUser?.role === 'ADMIN' && <Link href="/admin" aria-current={pathname === '/admin' ? 'page' : undefined} onClick={() => setMobileSidebarOpen(false)} className={`flex min-h-10 items-center gap-2.5 rounded px-2.5 text-sm transition-colors ${pathname === '/admin' ? 'bg-[var(--sidebar-accent)] font-medium text-[var(--foreground)]' : 'text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--foreground)]'}`}><Shield size={17} strokeWidth={1.6} aria-hidden="true" />管理面板</Link>}
         </nav>
         {teams.length > 0 && <section className="mt-8" aria-label="按团队查看日志">
