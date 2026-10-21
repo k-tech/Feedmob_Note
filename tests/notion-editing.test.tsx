@@ -221,7 +221,8 @@ test('deleting an inserted blank numbered line restores 1 2 3, as reported', () 
   };
   assert.equal(numbers(), '1.a 2. 3.b 4.c');
   key(editor, 'Backspace');
-  assert.equal(numbers(), '1.a ¶ 3.b 4.c');
+  // Like Enter on an empty item, the split-off part is numbered on its own.
+  assert.equal(numbers(), '1.a ¶ 1.b 2.c');
   key(editor, 'Backspace');
   assert.equal(numbers(), '1.a 2.b 3.c');
   assert.equal(editor.state.selection.$from.parent.textContent, 'a');

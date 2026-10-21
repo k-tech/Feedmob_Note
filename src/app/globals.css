@@ -165,9 +165,11 @@ kbd { font-family: inherit; white-space: nowrap; font-size: 11px; color: var(--m
 .tiptap .toggle-control:hover { background: var(--muted); }
 .toggle-control svg { width: 16px; height: 16px; transition: transform 140ms; }
 .toggle-control button[aria-expanded="true"] svg { transform: rotate(90deg); }
-.toggle-content > :first-child { margin-top: 0; }
-.toggle-content > :not(:first-child) { margin-left: 0; }
-.toggle-block.is-collapsed .toggle-content > :not(:first-child) { display: none; }
+/* React NodeViewContent wraps the editable content in a second div. */
+.toggle-content > :first-child, .toggle-content > [data-node-view-content-react] > :first-child { margin-top: 0; }
+.toggle-content > :not(:first-child), .toggle-content > [data-node-view-content-react] > :not(:first-child) { margin-left: 0; }
+.toggle-block.is-collapsed .toggle-content > :not(:first-child):not([data-node-view-content-react]),
+.toggle-block.is-collapsed .toggle-content > [data-node-view-content-react] > :not(:first-child) { display: none; }
 .tiptap .block-selected, .tiptap .ProseMirror-selectednode { background: var(--selection); border-radius: 3px; outline: none; }
 .feedmob-drag-source-active { opacity: .35 !important; pointer-events: none !important; }
 .block-drop-highlight { position: absolute; z-index: 25; pointer-events: none; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 4px; background: color-mix(in srgb, var(--accent) 5%, transparent); }

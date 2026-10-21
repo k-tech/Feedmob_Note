@@ -1,7 +1,8 @@
 import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { HTML_EXAMPLE } from './extensions/HtmlNode';
 import { convertBlock } from './utils/block-conversion';
-import { getBlockPosFromSelection } from './utils/block-movement';
+import { addColumnsInRow, getLinePosFromSelection } from './utils/block-movement';
+import { applyBlockConversion } from './utils/block-conversion';
 import type { Editor } from '@tiptap/core';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -28,6 +29,23 @@ import {
   Target,
 } from 'lucide-react';
 
+/**
+ * Before a non-text block (image, table, divider…) is inserted: remove the
+ * slash query, and when the line is an empty list item, leave the list first
+ * so the block replaces the empty bullet instead of nesting under it.
+ */
+function beginBlockInsert(editor: Editor, range?: { from: number; to: number }) {
+  const tr = editor.state.tr;
+  if (range) tr.delete(range.from, range.to);
+  const { $from } = tr.selection;
+  const itemDepth = $from.depth - 1;
+  const item = itemDepth > 0 ? $from.node(itemDepth) : null;
+  if (item && ['listItem', 'taskItem'].includes(item.type.name) && item.childCount === 1 && !$from.parent.content.size) {
+    applyBlockConversion(tr, $from.before(itemDepth), 'paragraph');
+  }
+  if (tr.docChanged) editor.view.dispatch(tr);
+}
+
 export interface SlashItem {
   id: string;
   title: string;
@@ -49,10 +67,10 @@ interface SlashCommandMenuProps {
 const ITEMS: SlashItem[] = [
   {
     id: 'image', title: '图片', description: '选择图片、粘贴截图、拖入文件或添加图片链接',
-    keywords: ['image', 'photo', 'picture', 'tupian', '截图', '照片', '图片'], icon: ImagePlus,
+    keywords: ['image', 'img', 'photo', 'picture', 'tupian', '截图', '照片', '图片'], icon: ImagePlus,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertContent({ type: 'image' }).run();
     },
   },
@@ -60,8 +78,8 @@ const ITEMS: SlashItem[] = [
     id: 'html', title: 'HTML 预览', description: '在日志中显示 HTML 页面、样式和交互，可导入文件',
     keywords: ['html', 'web', 'preview', '网页', '界面', '代码预览', 'yulan'], icon: Code2,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertContent({ type: 'htmlPreview', attrs: { code: HTML_EXAMPLE } }).run();
     },
   },
@@ -69,8 +87,8 @@ const ITEMS: SlashItem[] = [
     id: 'table', title: '表格', description: '插入三列表格，整理指标、进度与对照信息',
     keywords: ['table', 'sheet', 'biaoge', '表格', '数据', '对照'], icon: Table2,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
     },
   },
@@ -79,10 +97,10 @@ const ITEMS: SlashItem[] = [
     ['info', '说明', '补充背景、上下文和参考信息', Info],
     ['success', '目标与产出', '记录目标、交付结果和里程碑', Target],
   ] as const).map(([id, title, description, icon]): SlashItem => ({
-    id, title, description, keywords: [id, title, id === 'tip' ? 'tishi' : id === 'info' ? 'shuoming' : 'goal'], icon,
+    id, title, description, keywords: [id, title, 'callout', '提示块', id === 'tip' ? 'tishi' : id === 'info' ? 'shuoming' : 'goal'], icon,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertContent({ type: 'callout', attrs: { type: id }, content: [{ type: 'paragraph' }] }).run();
     },
   })),
@@ -90,7 +108,7 @@ const ITEMS: SlashItem[] = [
     id: 'toggle', title: '折叠列表', description: '收起细节，让正文保持清晰',
     keywords: ['toggle', 'fold', 'zhedie', '折叠', '收起'], icon: ChevronRight,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'toggle', range);
     },
   },
@@ -101,8 +119,8 @@ const ITEMS: SlashItem[] = [
     keywords: ['moban', 'template', 'today', 'jinri', 'mb'],
     icon: Sparkles,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertContent([
         {
           type: 'heading',
@@ -146,11 +164,11 @@ const ITEMS: SlashItem[] = [
     id: "blocker",
     title: '卡点 / Blocker 高亮块',
     description: '特别标注阻塞风险与需协调事项',
-    keywords: ['blocker', 'kadian', 'risk', 'warn', 'kd'],
+    keywords: ['blocker', 'kadian', 'risk', 'warn', 'kd', 'callout'],
     icon: AlertTriangle,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertContent({
         type: 'callout',
         attrs: { type: 'blocker' },
@@ -165,7 +183,7 @@ const ITEMS: SlashItem[] = [
     keywords: ['todo', 'task', 'daiban', 'checklist', 'renwu'],
     icon: CheckSquare,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'taskList', range);
     },
   },
@@ -176,8 +194,8 @@ const ITEMS: SlashItem[] = [
     keywords: ['mermaid', 'flowchart', 'diagram', 'tu', 'liucheng'],
     icon: GitGraph,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertContent({
         type: 'mermaid',
         attrs: {
@@ -193,8 +211,8 @@ const ITEMS: SlashItem[] = [
     keywords: ['whiteboard', 'canvas', 'draw', 'baiban', 'tldraw'],
     icon: Palette,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertContent({
         type: 'whiteboard',
       }).run();
@@ -204,11 +222,15 @@ const ITEMS: SlashItem[] = [
     id: count === 2 ? 'columns' : `columns${count}`,
     title: `${count} 栏并排布局`,
     description: `在同一行并排显示 ${count} 列区块`,
-    keywords: ['column', 'columns', 'fenlan', 'bingpai', 'grid', String(count), `${count}lan`, `${count} columns`],
+    keywords: ['column', 'columns', 'fenlan', '分栏', '分列', 'bingpai', 'grid', String(count), `${count}lan`, `${count} columns`],
     icon: Layout,
     action: (editor, range) => {
+      // Inside a column the row grows instead of nesting a second row.
+      const tr = editor.state.tr;
+      if (range) tr.delete(range.from, range.to);
+      if (addColumnsInRow(tr, count - 1)) { editor.view.dispatch(tr.scrollIntoView()); editor.commands.focus(); return; }
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertContent({
         type: 'columnList',
         attrs: { columns: count },
@@ -223,8 +245,8 @@ const ITEMS: SlashItem[] = [
     keywords: ['figma', 'embed', 'video', 'link', 'qianru'],
     icon: Layout,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.insertContent({
         type: 'embed',
         attrs: { src: '', type: 'bookmark' },
@@ -238,7 +260,7 @@ const ITEMS: SlashItem[] = [
     keywords: ['h1', 'heading1', 'biaoti1', '1'],
     icon: Heading1,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'heading1', range);
     },
   },
@@ -249,7 +271,7 @@ const ITEMS: SlashItem[] = [
     keywords: ['h2', 'heading2', 'biaoti2', '2'],
     icon: Heading2,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'heading2', range);
     },
   },
@@ -260,7 +282,7 @@ const ITEMS: SlashItem[] = [
     keywords: ['h3', 'heading3', 'biaoti3', '3'],
     icon: Heading3,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'heading3', range);
     },
   },
@@ -271,7 +293,7 @@ const ITEMS: SlashItem[] = [
     keywords: ['code', 'daima', 'snippet', 'js', 'ts', 'python'],
     icon: Code2,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'codeBlock', range);
     },
   },
@@ -282,7 +304,7 @@ const ITEMS: SlashItem[] = [
     keywords: ['quote', 'yinyong', 'cite'],
     icon: Quote,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'blockquote', range);
     },
   },
@@ -293,7 +315,7 @@ const ITEMS: SlashItem[] = [
     keywords: ['bullet', 'list', 'wuxu', 'liebiao', 'ul', '-'],
     icon: List,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'bulletList', range);
     },
   },
@@ -304,7 +326,7 @@ const ITEMS: SlashItem[] = [
     keywords: ['numbered', 'order', 'youxu', 'liebiao', 'ol', '1.'],
     icon: ListOrdered,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'orderedList', range);
     },
   },
@@ -312,11 +334,11 @@ const ITEMS: SlashItem[] = [
     id: "divider",
     title: '分割线 (Divider)',
     description: '用于区分段落的水平分割线',
-    keywords: ['divider', 'hr', 'line', 'fengexian', '---'],
+    keywords: ['divider', 'hr', 'line', 'fengexian', 'fgx', '分割线', '---'],
     icon: Minus,
     action: (editor, range) => {
+      beginBlockInsert(editor, range);
       const chain = editor.chain().focus();
-      if (range) chain.deleteRange(range);
       chain.setHorizontalRule().run();
     },
   },
@@ -327,7 +349,7 @@ const ITEMS: SlashItem[] = [
     keywords: ['text', 'paragraph', 'wenben', 'p'],
     icon: Type,
     action: (editor, range) => {
-      const pos = getBlockPosFromSelection(editor);
+      const pos = getLinePosFromSelection(editor);
       if (pos !== null) convertBlock(editor, pos, 'paragraph', range);
     },
   },
@@ -366,7 +388,14 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
   }, [selectedIndex]);
 
   const cleanQuery = query.toLowerCase().trim();
+  // Tables and column rows do not nest inside a table cell.
+  const inCell = !!editor && (() => {
+    const { $from } = editor.state.selection;
+    for (let depth = $from.depth; depth > 0; depth--) if (['tableCell', 'tableHeader'].includes($from.node(depth).type.name)) return true;
+    return false;
+  })();
   const filteredItems = SLASH_ITEMS.filter((item) => {
+    if (inCell && (item.id === 'table' || item.id.startsWith('columns'))) return false;
     if (!cleanQuery) return true;
     return (
       item.title.toLowerCase().includes(cleanQuery) ||
@@ -399,6 +428,8 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen || !editor || e.isComposing || editor.view.composing || e.keyCode === 229 || e.ctrlKey || e.metaKey || e.altKey || !editor.view.dom.contains(e.target as Node)) return;
       if (!['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) return;
+      // Nothing to choose: close the menu and let Enter reach the editor.
+      if (e.key === 'Enter' && !filteredItems.length) { onClose(); return; }
       e.stopPropagation();
 
       if (e.key === 'ArrowDown') {

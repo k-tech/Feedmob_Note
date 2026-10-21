@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
-import type { JSONContent } from '@tiptap/core';
+import { getSchema, type JSONContent } from '@tiptap/core';
+import { Node as ProseMirrorNode, type Schema } from '@tiptap/pm/model';
 import { documentExtensions } from './extensions/document';
 import { parseDocument } from './utils/document';
 
@@ -14,8 +15,16 @@ interface LogDocumentProps {
   className?: string;
 }
 
+let readerSchema: Schema | null = null;
+
+/** Parse and validate against the schema; an unknown block shows the summary. */
 function readDocument(content: unknown): JSONContent | null {
-  try { return parseDocument(content); } catch { return null; }
+  try {
+    const doc = parseDocument(content);
+    readerSchema ??= getSchema(documentExtensions({ editable: false }));
+    ProseMirrorNode.fromJSON(readerSchema, doc).check();
+    return doc;
+  } catch { return null; }
 }
 
 /**

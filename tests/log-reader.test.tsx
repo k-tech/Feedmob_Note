@@ -57,4 +57,7 @@ test('a changed document replaces the view; an unreadable one shows the text sum
   const broken = await render('{not json', '纯文本摘要');
   try { assert.equal(broken.container.textContent, '纯文本摘要'); }
   finally { await broken.close(); }
+  const unknown = await render({ type: 'doc', content: [{ type: 'unknownBlock' }] }, '未知块摘要');
+  try { assert.equal(unknown.container.textContent, '未知块摘要'); }
+  finally { await unknown.close(); }
 });

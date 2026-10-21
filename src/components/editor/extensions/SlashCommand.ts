@@ -10,7 +10,8 @@ export function findSlashMatch(state: EditorState): SlashMatch | null {
   const { $from, empty } = selection;
   if (!empty || !$from.parent.isTextblock || $from.parent.type.spec.code) return null;
   const before = $from.parent.textBetween(0, $from.parentOffset, '\n', '\ufffc');
-  const match = /(?:^|\s)\/([^\s/]*)$/.exec(before);
+  // Chinese punctuation mode types "、" for the "/" key.
+  const match = /(?:^|\s)[/、]([^\s/、]*)$/.exec(before);
   if (!match) return null;
   return { from: $from.pos - match[1].length - 1, to: $from.pos, query: match[1] };
 }

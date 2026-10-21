@@ -1,6 +1,6 @@
 import { Editor } from '@tiptap/react';
 import { Fragment, Node as ProseMirrorNode } from '@tiptap/pm/model';
-import { TextSelection, NodeSelection } from '@tiptap/pm/state';
+import { TextSelection, NodeSelection, type Transaction } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { closeHistory } from '@tiptap/pm/history';
 import { convertBlock } from './block-conversion';
@@ -45,6 +45,22 @@ export function getBlockPosFromSelection(editor: Editor): number | null {
   const before = $from.nodeBefore;
   if (before && before.isBlock) return $from.pos - before.nodeSize;
   return null;
+}
+
+/**
+ * The line a slash command acts on. Unlike block actions, the first line of a
+ * callout or quote is its own line (only a toggle's title must stay its
+ * paragraph); a list item still converts as a whole item.
+ */
+export function getLinePosFromSelection(editor: Editor): number | null {
+  const { $from } = editor.state.selection;
+  if (!$from.parent.isTextblock || $from.depth < 1) return getBlockPosFromSelection(editor);
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if (['listItem', 'taskItem'].includes($from.node(depth).type.name)) return $from.before(depth);
+  }
+  const container = $from.node($from.depth - 1);
+  if (container?.type.name === 'toggle' && $from.index($from.depth - 1) === 0) return $from.before($from.depth - 1);
+  return $from.before($from.depth);
 }
 
 /**
@@ -131,6 +147,31 @@ export function moveBlockAtPos(
   const atEdge =
     direction === 'up' ? index === 0 : index === parent.childCount - 1;
 
+  // The first body line of a toggle/callout/quote never swaps with its title
+  // line, and the last one never drags the container along: they leave the
+  // container instead (Notion).
+  const titled = ['toggle', 'callout', 'blockquote'].includes(parent.type.name);
+  if (titled && depth > 0 && ((direction === 'up' && index === 1) || (direction === 'down' && index > 0 && index === parent.childCount - 1))) {
+    const containerPos = $pos.before(depth);
+    const offset = state.selection.from >= blockPos && state.selection.to <= blockPos + node.nodeSize ? state.selection.from - blockPos : 1;
+    const tr = state.tr;
+    let insertAt: number;
+    if (direction === 'up') { tr.delete(blockPos, blockPos + node.nodeSize).insert(containerPos, node); insertAt = containerPos; }
+    else { const after = $pos.after(depth); tr.insert(after, node).delete(blockPos, blockPos + node.nodeSize); insertAt = after - node.nodeSize; }
+    try { tr.doc.check(); } catch { return false; }
+    try { tr.setSelection(TextSelection.near(tr.doc.resolve(insertAt + offset))); } catch {}
+    view.dispatch(tr.scrollIntoView());
+    editor.commands.focus();
+    return true;
+  }
+
+  // A list item at its list's edge leaves the list past the neighbouring
+  // block, as Notion moves one item, not the whole list. ListJoin rejoins it
+  // with a list of the same kind it lands next to.
+  if (atEdge && ['listItem', 'taskItem'].includes(node.type.name) && parent.childCount > 1 && depth > 0) {
+    if (moveListItemOut(editor, blockPos, direction)) return true;
+  }
+
   if (isColumnMove || atEdge) {
     if (depth <= 0) return false; // top-level block already at the doc edge
     return moveBlockAtPos(editor, $pos.before(depth), direction);
@@ -169,6 +210,36 @@ export function moveBlockAtPos(
   } catch {}
 
   view.dispatch(tr);
+  editor.commands.focus();
+  return true;
+}
+
+function moveListItemOut(editor: Editor, itemPos: number, direction: 'up' | 'down'): boolean {
+  const { state, view } = editor;
+  const item = state.doc.nodeAt(itemPos)!;
+  const $item = state.doc.resolve(itemPos);
+  const list = $item.parent;
+  const listPos = $item.before();
+  const $list = state.doc.resolve(listPos);
+  const container = $list.parent;
+  const listIndex = $list.index();
+  const neighborIndex = direction === 'up' ? listIndex - 1 : listIndex + 1;
+  if (neighborIndex < 0 || neighborIndex >= container.childCount) return false;
+  const neighbor = container.child(neighborIndex);
+  const single = list.type.create(list.attrs, [item]);
+  const rest = list.type.create(list.attrs, direction === 'up'
+    ? Array.from({ length: list.childCount - 1 }, (_, i) => list.child(i + 1))
+    : Array.from({ length: list.childCount - 1 }, (_, i) => list.child(i)));
+  const replacement = direction === 'up' ? [single, neighbor, rest] : [rest, neighbor, single];
+  const from = direction === 'up' ? listPos - neighbor.nodeSize : listPos;
+  const to = direction === 'up' ? listPos + list.nodeSize : listPos + list.nodeSize + neighbor.nodeSize;
+  const start = Math.min(listIndex, neighborIndex), end = Math.max(listIndex, neighborIndex) + 1;
+  if (!container.canReplace(start, end, Fragment.fromArray(replacement))) return false;
+  const tr = state.tr.replaceWith(from, to, replacement);
+  const offset = Math.max(1, state.selection.from - itemPos);
+  const singlePos = direction === 'up' ? from : from + rest.nodeSize + neighbor.nodeSize;
+  try { tr.setSelection(TextSelection.near(tr.doc.resolve(singlePos + 1 + offset))); } catch {}
+  view.dispatch(tr.scrollIntoView());
   editor.commands.focus();
   return true;
 }
@@ -304,12 +375,31 @@ export function insertParagraphNear(
 }
 
 /**
+ * Inside a column, "more columns" means more columns in the same row:
+ * columns never nest. Adds `count` empty columns after the column containing
+ * the transaction's selection and puts the caret in the first one.
+ */
+export function addColumnsInRow(tr: Transaction, count: number, at = tr.selection.from): boolean {
+  const $at = tr.doc.resolve(at);
+  let depth = $at.depth;
+  while (depth > 0 && $at.node(depth).type.name !== 'column') depth--;
+  if (depth === 0) return false;
+  const { column, paragraph } = tr.doc.type.schema.nodes;
+  const after = $at.after(depth);
+  tr.insert(after, Array.from({ length: count }, () => column.create(null, paragraph.create())));
+  tr.setSelection(TextSelection.near(tr.doc.resolve(after + 2)));
+  return true;
+}
+
+/**
  * Wrap the block at `blockPos` into a 2-column row (handle menu action).
  */
 export function turnBlockIntoColumns(editor: Editor, blockPos: number): boolean {
   const { state, view } = editor;
   const node = state.doc.nodeAt(blockPos);
   if (!node || !node.isBlock) return false;
+  const inRow = state.tr;
+  if (addColumnsInRow(inRow, 1, blockPos)) { view.dispatch(inRow.scrollIntoView()); editor.commands.focus(); return true; }
   if (['listItem', 'taskItem'].includes(node.type.name)) return convertBlock(editor, blockPos, 'columns');
   if (['columnList', 'column'].includes(node.type.name)) return false;
 
@@ -331,6 +421,15 @@ export function turnBlockIntoColumns(editor: Editor, blockPos: number): boolean 
   );
   view.dispatch(tr);
   return true;
+}
+
+const LIST_ITEMS = new Set(['listItem', 'taskItem']);
+const LIST_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
+
+function insideColumn(doc: ProseMirrorNode, pos: number) {
+  const $pos = doc.resolve(pos);
+  for (let depth = $pos.depth; depth > 0; depth--) if ($pos.node(depth).type.name === 'column') return true;
+  return false;
 }
 
 export type DropZone = 'above' | 'below' | 'left' | 'right';
@@ -434,12 +533,19 @@ export function computeBlockDropTarget(
         if (sourceIndex === targetIndex + (zone === 'right' ? 1 : -1)) return null;
       }
     }
+    // A whole row never lands inside a column: columns do not nest.
+    if (source.type.name === 'columnList' && insideColumn(view.state.doc, targetPos)) return null;
     if (zone === 'above' || zone === 'below') {
       const $target = view.state.doc.resolve(targetPos);
       const $source = view.state.doc.resolve(sourcePos);
       const index = $target.index() + (zone === 'below' ? 1 : 0);
-      const portableType = ['listItem', 'taskItem'].includes(source.type.name) ? $source.parent.type : source.type;
-      if (!$target.parent.canReplaceWith(index, index, source.type) && !$target.parent.canReplaceWith(index, index, portableType)) return null;
+      const isItem = LIST_ITEMS.has(source.type.name);
+      const portableType = isItem ? $source.parent.type : source.type;
+      const direct = (!isItem || $source.parent.type === $target.parent.type) && $target.parent.canReplaceWith(index, index, source.type);
+      // Text dropped between list items splits the list there (Notion).
+      const splitsList = LIST_TYPES.has($target.parent.type.name) && $target.depth > 0
+        && $target.node($target.depth - 1).canReplaceWith($target.index($target.depth - 1), $target.index($target.depth - 1), portableType);
+      if (!direct && !splitsList && !$target.parent.canReplaceWith(index, index, portableType)) return null;
       if ($source.parent === $target.parent && (
         (zone === 'below' && targetPos + targetNode.nodeSize === sourcePos) ||
         (zone === 'above' && sourcePos + source.nodeSize === targetPos)
@@ -472,8 +578,22 @@ export function computeBlockDropTarget(
       highlight = { top: rowRect.top, left: rowRect.left, width: rowRect.width, height: rowRect.height };
       label = gap ? '放到两列之间并排成列' : `在当前列${zone === 'left' ? '左侧' : '右侧'}新增列`;
     } else {
-      const $target = view.state.doc.resolve(targetPos);
+      let $target = view.state.doc.resolve(targetPos);
       const rowType = view.state.schema.nodes.columnList;
+      // A list item cannot sit in a column alone; the whole list goes beside.
+      if (LIST_TYPES.has($target.parent.type.name) && $target.depth > 0) {
+        const listPos = $target.before();
+        const listDom = view.nodeDOM(listPos);
+        const source = sourcePos === undefined ? null : view.state.doc.nodeAt(sourcePos);
+        if (!(listDom instanceof HTMLElement) || (source && sourcePos! > listPos && sourcePos! < listPos + $target.parent.nodeSize)) return null;
+        targetPos = listPos;
+        targetNode = $target.parent;
+        rect = listDom.getBoundingClientRect();
+        $target = view.state.doc.resolve(listPos);
+        edge = zone === 'left' ? rect.left : rect.right;
+        top = rect.top; height = rect.height;
+        highlight = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+      }
       if (!rowType || !$target.parent.canReplaceWith($target.index(), $target.index() + 1, rowType)) return null;
       label = `放到${zone === 'left' ? '左侧' : '右侧'}并排成列`;
     }
@@ -521,10 +641,10 @@ export function moveBlockToDropTarget(
     // Remove a vacated column itself so schema auto-fill does not leave a ghost column.
     const sourceParent = doc.resolve(sourcePos);
     const isListItem = ['listItem', 'taskItem'].includes(sourceNode.type.name);
-    const listAttrs = sourceParent.parent.type.name === 'orderedList'
-      ? { ...sourceParent.parent.attrs, start: (sourceParent.parent.attrs.start ?? 1) + sourceParent.index() }
-      : sourceParent.parent.attrs;
-    const portableNode = isListItem ? sourceParent.parent.type.createChecked(listAttrs, [sourceNode]) : sourceNode;
+    // An item leaving its list starts its own list, numbered from the list's
+    // own start like any split (see applyBlockConversion).
+    const portableNode = isListItem ? sourceParent.parent.type.createChecked(sourceParent.parent.attrs, [sourceNode]) : sourceNode;
+    const sourceListType = sourceParent.parent.type;
     if (isListItem && sourceParent.parent.childCount === 1) {
       tr.delete(sourceParent.before(), sourceParent.after());
     } else if (sourceParent.parent.type.name === 'column' && sourceParent.parent.childCount === 1 && sourceParent.node(sourceParent.depth - 1).childCount > 1) {
@@ -537,10 +657,22 @@ export function moveBlockToDropTarget(
     if (!targetNow || (leavingTargetRow ? targetNow.type !== targetNode.type : !targetNow.eq(targetNode))) return false;
 
     if (zone === 'above' || zone === 'below') {
-      const insertion = zone === 'above' ? mappedTarget : mappedTarget + targetNow.nodeSize;
+      let insertion = zone === 'above' ? mappedTarget : mappedTarget + targetNow.nodeSize;
       const $insert = tr.doc.resolve(insertion);
-      const insertNode = $insert.parent.canReplaceWith($insert.index(), $insert.index(), sourceNode.type) ? sourceNode : portableNode;
-      if (!$insert.parent.canReplaceWith($insert.index(), $insert.index(), insertNode.type)) return false;
+      const parent = $insert.parent, index = $insert.index();
+      // A bullet stays a bullet in a numbered list (and vice versa): items
+      // only join a list of their own kind.
+      const sameKind = !isListItem || parent.type === sourceListType;
+      let insertNode = sameKind && parent.canReplaceWith(index, index, sourceNode.type) ? sourceNode : portableNode;
+      if (!parent.canReplaceWith(index, index, insertNode.type) && LIST_TYPES.has(parent.type.name)) {
+        // Split the list at the drop point and insert between the halves.
+        if (index === 0) insertion = $insert.before();
+        else if (index === parent.childCount) insertion = $insert.after();
+        else { tr.split(insertion); insertion += 1; }
+        insertNode = portableNode;
+      }
+      const $at = tr.doc.resolve(insertion);
+      if (!$at.parent.canReplaceWith($at.index(), $at.index(), insertNode.type)) return false;
       tr.insert(insertion, insertNode);
       tr.setSelection(TextSelection.near(tr.doc.resolve(insertion + 1)));
     } else {

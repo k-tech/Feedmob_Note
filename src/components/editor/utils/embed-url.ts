@@ -1,5 +1,7 @@
 export function parseEmbedUrl(input: string) {
-  const url = new URL(input.trim());
+  const value = input.trim();
+  // A bare domain ("example.com/page") is accepted as https, like typed links.
+  const url = new URL(/^[\w-]+(?:\.[\w-]+)+(?:[/?#]\S*)?$/.test(value) ? 'https://' + value : value);
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('请使用完整的 http:// 或 https:// 链接。');
   const host = url.hostname.toLowerCase();
   let type: 'figma' | 'video' | 'bookmark' = 'bookmark';

@@ -1,4 +1,5 @@
 import { Extension, InputRule, textblockTypeInputRule, wrappingInputRule } from '@tiptap/core';
+import { applyBlockConversion, type BlockType } from '../utils/block-conversion';
 
 /**
  * Markdown typed in place becomes the block it describes, like Notion.
@@ -14,6 +15,36 @@ export function normalizeTypedLink(raw: string): string | null {
   if (/^(?:https?:\/\/|mailto:)\S+$/i.test(value)) return value;
   if (/^[\w-]+(?:\.[\w-]+)+(?:[/?#]\S*)?$/.test(value)) return 'https://' + value;
   return null;
+}
+
+/**
+ * Inside a list item the wrapping/textblock rules above cannot apply (the item
+ * already wraps the paragraph). Notion turns the item itself into the typed
+ * type, e.g. "1. " in a bullet makes it numbered and "## " makes a heading.
+ */
+const LIST_ITEM_TURN_INTO: [RegExp, (match: RegExpMatchArray) => BlockType][] = [
+  [new RegExp(`^\\d+[.。．)）]${SPACE}$`), () => 'orderedList'],
+  [new RegExp(`^[-+*－＋＊]${SPACE}$`), () => 'bulletList'],
+  [new RegExp(`^([#＃]{1,3})${SPACE}$`), match => `heading${match[1].length}` as BlockType],
+  [new RegExp(`^[>》]${SPACE}$`), () => 'blockquote'],
+  [new RegExp(`^(?:\`\`\`|···|｀｀｀)${SPACE}$`), () => 'codeBlock'],
+];
+
+function listItemTurnIntoRules(): InputRule[] {
+  return LIST_ITEM_TURN_INTO.map(([find, target]) => new InputRule({
+    find,
+    handler: ({ state, range, match }) => {
+      const { $from } = state.selection;
+      const itemDepth = $from.depth - 1;
+      if (itemDepth < 1 || $from.index(itemDepth) !== 0) return null;
+      const item = $from.node(itemDepth);
+      if (!['listItem', 'taskItem'].includes(item.type.name)) return null;
+      const type = target(match);
+      // Typing the list's own marker inside it stays literal text.
+      if (type === $from.node(itemDepth - 1).type.name) return null;
+      if (applyBlockConversion(state.tr, $from.before(itemDepth), type, range) === null) return null;
+    },
+  }));
 }
 
 export const MarkdownShortcuts = Extension.create({
@@ -61,6 +92,7 @@ export const MarkdownShortcuts = Extension.create({
         },
       }));
     }
+    rules.push(...listItemTurnIntoRules());
     return rules;
   },
 });

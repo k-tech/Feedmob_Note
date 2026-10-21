@@ -111,6 +111,8 @@ const WhiteboardComponent = (props: NodeViewProps) => {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     setIsDrawing(false);
     saveCanvas();
+    // Drawing happens outside the text; keep Cmd/Ctrl+Z undoing the stroke.
+    editor.view.focus();
   };
 
   const clearCanvas = () => {
@@ -118,7 +120,9 @@ const WhiteboardComponent = (props: NodeViewProps) => {
     const ctx = canvas?.getContext('2d');
     if (ctx && canvas) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      saveCanvas();
+      // An empty board stores nothing rather than a blank image.
+      latestDataRef.current = null;
+      updateAttributes({ dataUrl: null });
     }
   };
 

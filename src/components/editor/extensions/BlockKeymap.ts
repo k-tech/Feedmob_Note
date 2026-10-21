@@ -27,8 +27,19 @@ export function backspaceAtBlockStart(editor: Editor): boolean {
   const $from = caretAtBlockStart(editor);
   if (!$from || $from.depth < 1) return false;
   const block = $from.parent;
-  if (block.type.spec.code) return false;
   const depth = $from.depth;
+  if (block.type.spec.code) {
+    // An empty code block becomes text (Tiptap's own handler). Code is never
+    // merged into the line above; at most an empty line above is removed.
+    if (!block.content.size) return false;
+    const index = $from.index(depth - 1);
+    const above = index > 0 ? $from.node(depth - 1).child(index - 1) : null;
+    if (above?.type.name === 'paragraph' && !above.content.size) {
+      const abovePos = $from.before(depth) - above.nodeSize;
+      editor.view.dispatch(editor.state.tr.delete(abovePos, abovePos + above.nodeSize));
+    }
+    return true;
+  }
   const blockPos = $from.before(depth);
   const container = depth > 1 ? $from.node(depth - 1) : null;
   const index = $from.index(depth - 1);
@@ -71,6 +82,32 @@ export function backspaceAtBlockStart(editor: Editor): boolean {
   if (block.content.size) tr.insert($end.pos, block.content);
   tr.setSelection(TextSelection.create(tr.doc, $end.pos));
   view.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+/**
+ * Delete at the end of the last line of a list, quote or toggle pulls the
+ * next paragraph's text into that line (Notion), instead of ProseMirror's
+ * joinForward turning the paragraph into another list item.
+ */
+export function deleteAtBlockEnd(editor: Editor): boolean {
+  const { selection, doc } = editor.state;
+  if (!(selection instanceof TextSelection) || !selection.empty) return false;
+  const { $from } = selection;
+  if (!$from.parent.isTextblock || $from.parent.type.spec.code || $from.parentOffset !== $from.parent.content.size || $from.depth < 2) return false;
+  const $next = Selection.findFrom(doc.resolve($from.after()), 1, true)?.$from;
+  if (!$next || $next.parentOffset !== 0) return false;
+  const next = $next.parent;
+  if (!['paragraph', 'heading'].includes(next.type.name)) return false;
+  // Only text that sits outside the current container, directly after it.
+  const nextDepth = $next.depth;
+  if (nextDepth >= $from.depth || $next.before(nextDepth) !== $from.after(nextDepth)) return false;
+  const nextPos = $next.before(nextDepth);
+  const tr = editor.state.tr.delete(nextPos, nextPos + next.nodeSize);
+  if (next.content.size) tr.insert($from.pos, next.content);
+  tr.setSelection(TextSelection.create(tr.doc, $from.pos));
+  try { tr.doc.check(); } catch { return false; }
+  editor.view.dispatch(tr.scrollIntoView());
   return true;
 }
 
@@ -172,6 +209,13 @@ export const BlockKeymap = Extension.create({
   addKeyboardShortcuts() {
     return {
       Backspace: ({ editor }) => editor.commands.undoInputRule() || backspaceAtBlockStart(editor),
+      Delete: ({ editor }) => deleteAtBlockEnd(editor),
+      // StarterKit's hard break would exit the code block; code wants a newline.
+      'Shift-Enter': ({ editor }) => {
+        if (!editor.state.selection.$from.parent.type.spec.code) return false;
+        editor.view.dispatch(editor.state.tr.insertText('\n').scrollIntoView());
+        return true;
+      },
       Enter: ({ editor }) => enterCodeFence(editor),
       // Before liftListItem: nested text leaves its item without taking the item along.
       'Shift-Tab': ({ editor }) => outdentBlock(editor),

@@ -181,6 +181,9 @@ export const BlockDragHandle: React.FC<BlockDragHandleProps> = ({
       const target = targetAt(event.clientX, event.clientY);
       if (sourcePos !== null && target) moveBlockToDropTarget(editor, sourcePos, target);
       finishDrag();
+      // Native drag-and-drop leaves focus on the handle; return it to the
+      // document so Cmd/Ctrl+Z undoes the drop immediately.
+      editor.view.focus();
     };
     const handleDragLeave = (event: DragEvent) => {
       // Child-to-child transitions often have a null relatedTarget during

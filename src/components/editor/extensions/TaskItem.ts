@@ -35,7 +35,8 @@ export const TaskItem = BaseTaskItem.extend({
           }
           const previous = before.length ? list.copy(Fragment.fromArray(before)) : null;
           const task = state.schema.nodes.taskList.create(null, this.type.create({ checked }, item.content));
-          const following = after.length ? list.type.create({ ...list.attrs, ...(list.type.name === 'orderedList' ? { start: (list.attrs.start || 1) + index + 1 } : {}) }, after) : null;
+          // Like any split (see applyBlockConversion), the rest keeps the list's own start.
+          const following = after.length ? list.type.create(list.attrs, after) : null;
           tr.replaceWith(start, start + list.nodeSize, Fragment.fromArray([...(previous ? [previous] : []), task, ...(following ? [following] : [])]));
           tr.setSelection(TextSelection.create(tr.doc, start + (previous?.nodeSize || 0) + 3));
           return;

@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { TextSelection, type Transaction } from '@tiptap/pm/state';
 
 export const BLOCK_TYPES = [
   ['paragraph', '文本'], ['heading1', '一级标题'], ['heading2', '二级标题'], ['heading3', '三级标题'],
@@ -7,20 +8,32 @@ export const BLOCK_TYPES = [
 ] as const;
 export type BlockType = typeof BLOCK_TYPES[number][0] | 'columns';
 
-export function canConvertBlock(editor: Editor, pos: number): boolean {
-  const node = editor.state.doc.nodeAt(pos);
+function convertible(node: ProseMirrorNode | null | undefined): node is ProseMirrorNode {
   return !!node && (node.isTextblock || (['listItem', 'taskItem', 'toggle', 'callout', 'blockquote'].includes(node.type.name) && !!node.firstChild?.isTextblock));
 }
 
-// Convert only the selected item, keeping neighbouring list items and all
-// nested children. No text round-trip: inline marks survive conversion.
-export function convertBlock(editor: Editor, pos: number, type: BlockType, range?: { from: number; to: number }): boolean {
-  if (!canConvertBlock(editor, pos)) return false;
-  const { state, view } = editor;
-  const original = state.doc.nodeAt(pos)!;
-  if (range && (range.from < pos || range.to < range.from || range.to > pos + original.nodeSize)) return false;
-  const { schema } = state;
-  const tr = state.tr;
+export function canConvertBlock(editor: Editor, pos: number): boolean {
+  return convertible(editor.state.doc.nodeAt(pos));
+}
+
+/**
+ * Convert the block at `pos` inside `tr`, keeping neighbouring list items and
+ * all nested children. No text round-trip: inline marks survive conversion.
+ *
+ * A list item leaving its list splits the list. Like Notion, each remaining
+ * part is numbered on its own (it keeps the list's own start, not the
+ * position it used to have); adjacent parts of one kind are rejoined by
+ * ListJoin, so numbering continues again once they touch.
+ *
+ * Shared by the block menu, slash commands, Backspace and Markdown input rules.
+ * Returns the caret position for the converted block, or null when the
+ * conversion is not possible (the transaction is then unusable).
+ */
+export function applyBlockConversion(tr: Transaction, pos: number, type: BlockType, range?: { from: number; to: number }): number | null {
+  const original = tr.doc.nodeAt(pos);
+  if (!convertible(original)) return null;
+  if (range && (range.from < pos || range.to < range.from || range.to > pos + original.nodeSize)) return null;
+  const { schema } = tr.doc.type;
   if (range) tr.delete(range.from, range.to);
   const node = tr.doc.nodeAt(pos)!;
   const item = ['listItem', 'taskItem'].includes(node.type.name);
@@ -33,10 +46,7 @@ export function convertBlock(editor: Editor, pos: number, type: BlockType, range
     let siblings = trailing;
     if (type === 'columns') {
       const $pos = tr.doc.resolve(pos);
-      const attrs = $pos.parent.type.name === 'orderedList'
-        ? { ...$pos.parent.attrs, start: ($pos.parent.attrs.start ?? 1) + $pos.index() }
-        : $pos.parent.attrs;
-      const source = item ? $pos.parent.type.createChecked(attrs, [node]) : node;
+      const source = item ? $pos.parent.type.createChecked($pos.parent.attrs, [node]) : node;
       converted = schema.nodes.columnList.createChecked({ columns: 2 }, [
         schema.nodes.column.createChecked(null, [source]),
         schema.nodes.column.createChecked(null, [schema.nodes.paragraph.create()]),
@@ -68,15 +78,20 @@ export function convertBlock(editor: Editor, pos: number, type: BlockType, range
         if (i > index) after.push(list.child(i));
       }
       const prefix = before.length ? [list.type.createChecked(list.attrs, before)] : [];
-      const suffixAttrs = list.type.name === 'orderedList' ? { ...list.attrs, start: (list.attrs.start ?? 1) + index + 1 } : list.attrs;
-      const suffix = after.length ? [list.type.createChecked(suffixAttrs, after)] : [];
+      const suffix = after.length ? [list.type.createChecked(list.attrs, after)] : [];
       tr.replaceWith(listPos, listPos + list.nodeSize, [...prefix, converted, ...siblings, ...suffix]);
       selectionPos = listPos + (prefix[0]?.nodeSize ?? 0) + 1;
     } else tr.replaceWith(pos, pos + node.nodeSize, [converted, ...siblings]);
     tr.doc.check();
     tr.setSelection(TextSelection.near(tr.doc.resolve(selectionPos)));
-    view.dispatch(tr);
-    editor.commands.focus();
-    return true;
-  } catch { return false; }
+    return selectionPos;
+  } catch { return null; }
+}
+
+export function convertBlock(editor: Editor, pos: number, type: BlockType, range?: { from: number; to: number }): boolean {
+  const tr = editor.state.tr;
+  if (applyBlockConversion(tr, pos, type, range) === null) return false;
+  editor.view.dispatch(tr);
+  editor.commands.focus();
+  return true;
 }

@@ -109,7 +109,8 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       ...documentExtensions({ editable: true }),
       Placeholder.configure({
         includeChildren: true,
-        showOnlyCurrent: false,
+        // Like Notion, only the line being edited shows its hint.
+        showOnlyCurrent: true,
         placeholder: ({ node, pos, editor }) => {
           const $pos = editor.state.doc.resolve(pos);
           if (['tableCell', 'tableHeader'].includes($pos.parent.type.name)) return '';
@@ -287,6 +288,8 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
 
   const insertTemplate = () => {
     if (!editor) return;
+    // From the toolbar (no caret in the text) the template goes at the end.
+    if (!editor.isFocused) focusEnd();
     LOG_TEMPLATE.action(editor);
   };
 
