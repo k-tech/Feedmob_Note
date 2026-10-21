@@ -97,7 +97,7 @@ const ITEMS: SlashItem[] = [
   {
     id: "template",
     title: '今日标准日志模版',
-    description: '一键插入「今日产出、阻塞卡点、明日规划」结构化模版',
+    description: '一键插入「Done、阻塞卡点、Todo」结构化模版',
     keywords: ['moban', 'template', 'today', 'jinri', 'mb'],
     icon: Sparkles,
     action: (editor, range) => {
@@ -107,7 +107,7 @@ const ITEMS: SlashItem[] = [
         {
           type: 'heading',
           attrs: { level: 2 },
-          content: [{ type: 'text', text: '今日进展' }],
+          content: [{ type: 'text', text: 'Done' }],
         },
         {
           type: 'taskList',
@@ -127,7 +127,7 @@ const ITEMS: SlashItem[] = [
         {
           type: 'heading',
           attrs: { level: 2 },
-          content: [{ type: 'text', text: '明日计划' }],
+          content: [{ type: 'text', text: 'Todo' }],
         },
         {
           type: 'taskList',
@@ -340,7 +340,7 @@ const LABELS: Record<string, [string, string]> = {
   taskList: ['待办事项', '跟踪任务，完成后勾选'], bulletList: ['项目列表', '用圆点列出几件事情'], orderedList: ['编号列表', '按顺序记录步骤或要点'],
   blockquote: ['引用', '突出引用或重要观点'], codeBlock: ['代码', '保留缩进和原始格式'], divider: ['分割线', '为内容划分清晰的段落'],
   blocker: ['阻塞事项', '标记风险和需要协调的事项'], columns: ['双栏', '将内容并排成两列'], columns3: ['三栏', '将内容并排成三列'], columns4: ['四栏', '将内容并排成四列'], mermaid: ['流程图', '用 Mermaid 描述流程与结构'],
-  whiteboard: ['白板', '画一个草图或解释想法'], embed: ['嵌入链接', '添加 Figma、视频或网页'], template: ['日志模板', '今日进展、阻塞事项和明日计划'],
+  whiteboard: ['白板', '画一个草图或解释想法'], embed: ['嵌入链接', '添加 Figma、视频或网页'], template: ['日志模板', 'Done、阻塞事项和 Todo'],
 };
 export const SLASH_ITEMS = [...ITEMS].sort((a, b) => COMMAND_ORDER.indexOf(a.id) - COMMAND_ORDER.indexOf(b.id)).map(item => ({ ...item, title: LABELS[item.id]?.[0] || item.title, description: LABELS[item.id]?.[1] || item.description }));
 const commandGroup = (id: string) => ['template', 'blocker', 'tip', 'info', 'success'].includes(id) ? '工作日志' : ['image', 'html', 'table', 'columns', 'columns3', 'columns4', 'mermaid', 'whiteboard', 'embed'].includes(id) ? '布局与内容' : '基础块';

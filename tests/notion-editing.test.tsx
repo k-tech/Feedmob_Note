@@ -229,3 +229,11 @@ test('Backspace on text after a quote or collapsed toggle continues the last vis
   assert.equal(toggle.state.selection.$from.parent.textContent, '标题');
   assert.equal(toggle.state.doc.firstChild!.attrs.collapsed, true);
 });
+
+test('the log template uses Done and Todo sections', () => {
+  const editor = make();
+  SLASH_ITEMS.find(item => item.id === 'template')!.action(editor as any);
+  const headings: string[] = [];
+  editor.state.doc.descendants(node => { if (node.type.name === 'heading') headings.push(node.textContent); });
+  assert.deepEqual(headings, ['Done', 'Todo']);
+});
