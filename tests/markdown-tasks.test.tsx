@@ -177,3 +177,43 @@ test('browser HTML paragraph wrappers still recognize task source without losing
     assert.equal(editor.state.doc.firstChild!.firstChild!.attrs.checked, true);
   } finally { editor.destroy(); }
 });
+
+const USER_LIST = [
+  ['Capital One Shopping <> LG 后续 spend 手动录入', false], ['Binance <> Kayzen TH Spend 后续 spend 手动录入', true],
+  ['结合已梳理的 SOP 规范，推进日常录入的智能体化与自动化落地', false], ['Omarchy 系统深度调研（暂停）', true],
+  ['持续推进蒸馏版 Notion / WorkWeave 后续功能与内容完善', false], ['在远程服务器上做五小时测试任务', false],
+  ['Binance TH <> Remerge Spend 后续录入', false], ['完成后续实习报告', false],
+] as const;
+const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function pasteHTML(editor: Editor, html: string, text: string) {
+  const event = new window.Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'clipboardData', { value: { files: [], getData: (type: string) => type === 'text/html' ? html : type === 'text/plain' ? text : '' } });
+  editor.view.pasteHTML(html, event as ClipboardEvent);
+}
+
+for (const [source, html] of [
+  ['a rendered Markdown view (GitHub, previews)', '<ul class="contains-task-list">' + USER_LIST.map(([t, c]) => `<li class="task-list-item"><input type="checkbox" class="task-list-item-checkbox" disabled${c ? ' checked' : ''}> ${escape(t)}</li>`).join('') + '</ul>'],
+  ['a chat app (checkbox inside a label)', '<ul>' + USER_LIST.map(([t, c]) => `<li><p><label><input type="checkbox"${c ? ' checked=""' : ''} disabled=""></label> <span>${escape(t)}</span></p></li>`).join('') + '</ul>'],
+  ['a document using ☐ / ☑ characters', '<ul>' + USER_LIST.map(([t, c]) => `<li>${c ? '☑' : '☐'} ${escape(t)}</li>`).join('') + '</ul>'],
+] as const) {
+  test(`a checklist copied from ${source} pastes as tasks, not bullets`, () => {
+    const editor = make();
+    try {
+      const text = USER_LIST.map(([t, c]) => `- [${c ? 'x' : ' '}] ${t}`).join('\n');
+      pasteHTML(editor, html, text);
+      const list = editor.state.doc.firstChild!;
+      assert.equal(list.type.name, 'taskList');
+      assert.equal(list.childCount, USER_LIST.length);
+      assert.deepEqual(Array.from({ length: list.childCount }, (_, i) => [list.child(i).textContent, list.child(i).attrs.checked]), USER_LIST.map(([t, c]) => [t, c]));
+      assert.equal(editor.state.doc.childCount, 1, 'the list replaces the empty line, with no blank paragraphs');
+    } finally { editor.destroy(); }
+  });
+}
+
+test('ordinary bullets and lists that merely contain a checkbox later stay bullets', () => {
+  const editor = make();
+  try {
+    pasteHTML(editor, '<ul><li>普通条目</li><li>说明 <input type="checkbox"> 在中间</li></ul>', '- 普通条目\n- 说明 在中间');
+    assert.equal(editor.state.doc.firstChild!.type.name, 'bulletList');
+  } finally { editor.destroy(); }
+});

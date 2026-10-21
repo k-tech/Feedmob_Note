@@ -5,6 +5,21 @@ import { DOMParser as ProseMirrorParser, type Schema, type Fragment } from '@tip
 // executable HTML is only available through the existing isolated preview block.
 const markdown = new MarkdownIt({ html: false, breaks: true, linkify: false });
 
+/**
+ * A rendered checkbox at the start of a list item: `<input type="checkbox">`
+ * from GitHub, Markdown previews and chat apps, possibly inside a label/span.
+ */
+function leadingCheckbox(root: Element): HTMLInputElement | null {
+  for (const child of Array.from(root.childNodes)) {
+    if (child.nodeType === 3 && !(child as Text).data.trim()) continue;
+    if (child.nodeType !== 1) return null;
+    const element = child as Element;
+    if (element.matches('input[type="checkbox"]')) return element as HTMLInputElement;
+    return ['LABEL', 'SPAN'].includes(element.tagName) ? leadingCheckbox(element) : null;
+  }
+  return null;
+}
+
 /** Normalize GFM/Notion checkbox text without discarding links or inline marks. */
 export function normalizeTaskHTML(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -25,9 +40,19 @@ export function normalizeTaskHTML(html: string): string {
           else break;
         }
       };
+      const checkbox = leadingCheckbox(root);
+      if (checkbox) {
+        const isChecked = checkbox.hasAttribute('checked');
+        checkbox.remove();
+        item.setAttribute('data-type', 'taskItem');
+        item.setAttribute('data-checked', String(isChecked));
+        return isChecked;
+      }
       collect(root);
-      const match = /^\s*\[([ xX])\](?:[ \t]+|$)/.exec(texts.map(text => text.data).join(''));
+      // Notion/GFM text markers, or box characters used by docs and chat apps.
+      const match = /^\s*(?:\[([ xX])\]|([☐☑☒]))(?:[ \t]+|$)/.exec(texts.map(text => text.data).join(''));
       if (!match) return null;
+      const isChecked = match[1] ? match[1].toLowerCase() === 'x' : match[2] !== '☐';
       let remaining = match[0].length;
       for (const text of texts) {
         const count = Math.min(remaining, text.length);
@@ -35,8 +60,8 @@ export function normalizeTaskHTML(html: string): string {
         if (!remaining) break;
       }
       item.setAttribute('data-type', 'taskItem');
-      item.setAttribute('data-checked', String(match[1].toLowerCase() === 'x'));
-      return match[1].toLowerCase() === 'x';
+      item.setAttribute('data-checked', String(isChecked));
+      return isChecked;
     });
     if (checked.every(value => value === null)) continue;
     changed = true;
