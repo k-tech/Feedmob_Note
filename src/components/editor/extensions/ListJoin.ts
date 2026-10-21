@@ -6,11 +6,9 @@ import { canJoin } from '@tiptap/pm/transform';
 const LISTS = new Set(['bulletList', 'orderedList', 'taskList']);
 
 function continues(previous: ProseMirrorNode, next: ProseMirrorNode) {
-  if (previous.type !== next.type || !LISTS.has(next.type.name)) return false;
-  // An explicitly renumbered list (e.g. pasted "5. …") stays separate.
-  if (next.type.name !== 'orderedList') return true;
-  const start = next.attrs.start ?? 1;
-  return start === 1 || start === (previous.attrs.start ?? 1) + previous.childCount;
+  // Like Notion, adjacent items of one kind are always one list. A start
+  // number kept from an earlier split must not keep the halves apart.
+  return previous.type === next.type && LISTS.has(next.type.name);
 }
 
 /**

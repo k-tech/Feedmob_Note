@@ -204,9 +204,27 @@ test('adjacent lists of one kind join after a move, so numbering continues as in
   assert.deepEqual(shape(editor), ['orderedList(listItem(paragraph(一)),listItem(paragraph(二)),listItem(paragraph(三)))', 'paragraph(间隔)']);
   editor.commands.undo();
   assert.equal(editor.state.doc.childCount, 3);
-  const renumbered = make([list('orderedList', '一'), { type: 'orderedList', attrs: { start: 5 }, content: [{ type: 'listItem', content: [p('五')] }] }]);
-  renumbered.commands.insertContentAt(1, 'x');
-  assert.equal(renumbered.state.doc.childCount, 2);
+});
+
+test('deleting an inserted blank numbered line restores 1 2 3, as reported', () => {
+  const editor = make([list('orderedList', 'a', 'b', 'c')]);
+  caret(editor, 'a', 'end');
+  editor.commands.splitListItem('listItem');
+  const numbers = () => {
+    const out: string[] = [];
+    editor.state.doc.forEach(node => {
+      if (node.type.name !== 'orderedList') { out.push('¶' + node.textContent); return; }
+      let n = node.attrs.start ?? 1;
+      node.forEach(item => out.push(`${n++}.${item.textContent}`));
+    });
+    return out.join(' ');
+  };
+  assert.equal(numbers(), '1.a 2. 3.b 4.c');
+  key(editor, 'Backspace');
+  assert.equal(numbers(), '1.a ¶ 3.b 4.c');
+  key(editor, 'Backspace');
+  assert.equal(numbers(), '1.a 2.b 3.c');
+  assert.equal(editor.state.selection.$from.parent.textContent, 'a');
 });
 
 test('Backspace twice inside a list rejoins the split list', () => {
