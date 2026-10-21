@@ -277,3 +277,28 @@ test('embeds accept a bare domain like typed links do', async () => {
   assert.equal(parseEmbedUrl('example.com/page').src, 'https://example.com/page');
   assert.throws(() => parseEmbedUrl('javascript:alert(1)'));
 });
+
+test('copying a log as plain text puts one block per line, without extra blank lines or escapes', () => {
+  const editor = make([
+    { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Done' }] },
+    { type: 'taskList', content: [
+      { type: 'taskItem', attrs: { checked: true }, content: [p('完成 snake_case 字段整理')] },
+      { type: 'taskItem', attrs: { checked: false }, content: [p('跟进 [Blocker] 问题')] }] },
+    p('第一行普通文字'), p('第二行普通文字'), p(), p('空行之后的文字'),
+    { type: 'paragraph', content: [{ type: 'text', text: '软换行前' }, { type: 'hardBreak' }, { type: 'text', text: '软换行后' }] },
+    list('orderedList', ['步骤一', '步骤二']),
+    { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Todo' }] },
+    p('最后一行'),
+  ]);
+  editor.commands.selectAll();
+  const text = editor.view.serializeForClipboard(editor.state.selection.content()).text;
+  assert.equal(text, [
+    '## Done', '- [x] 完成 snake_case 字段整理', '- [ ] 跟进 [Blocker] 问题',
+    '第一行普通文字', '第二行普通文字', '', '空行之后的文字', '软换行前', '软换行后',
+    '1. 步骤一', '2. 步骤二', '## Todo', '最后一行',
+  ].join('\n'));
+  // The same text pasted back (e.g. via a chat app) keeps every block apart.
+  editor.commands.clearContent();
+  paste(editor, text);
+  assert.equal(outline(editor), 'h2:Done ☑完成 snake_case 字段整理 ☐跟进 [Blocker] 问题 ¶第一行普通文字 ¶第二行普通文字 ¶空行之后的文字 ¶软换行前 ¶软换行后 1.步骤一 2.步骤二 h2:Todo ¶最后一行');
+});

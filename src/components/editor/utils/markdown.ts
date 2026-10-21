@@ -194,8 +194,49 @@ function liftImages(doc: Document) {
   }
 }
 
+const LIST_LINE = /^\s*(?:[-+*]|\d+[.)])\s/;
+
+/**
+ * Plain text from Minework (and Notion) puts one block per line with no
+ * blank lines. In Markdown an unindented line right after a list item or a
+ * quote would be a lazy continuation of it; end the list/quote there.
+ */
+function separateBlocks(source: string): string {
+  const out: string[] = [];
+  let fence: string | null = null;
+  let previous = '';
+  for (const line of source.split('\n')) {
+    const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
+    if (fence) { if (marker?.startsWith(fence[0]) && marker.length >= fence.length) fence = null; out.push(line); previous = line; continue; }
+    if (marker) fence = marker;
+    const continuesList = LIST_LINE.test(previous) || (/^\s+\S/.test(previous) && out.some(l => LIST_LINE.test(l)));
+    const endsContainer = line.trim() && !/^\s/.test(line) && !LIST_LINE.test(line) && !line.startsWith('>')
+      && (continuesList || previous.startsWith('>')) && previous.trim();
+    if (endsContainer) out.push('');
+    out.push(line);
+    previous = line;
+  }
+  return out.join('\n');
+}
+
+/** Each pasted line is its own block (Notion), not a hard break in one paragraph. */
+function splitLines(doc: Document) {
+  for (const paragraph of Array.from(doc.body.querySelectorAll(':scope > p')).filter(p => p.querySelector(':scope > br'))) {
+    let current = doc.createElement('p');
+    const parts = [current];
+    for (const child of Array.from(paragraph.childNodes)) {
+      if (child.nodeName === 'BR') { current = doc.createElement('p'); parts.push(current); }
+      else current.appendChild(child);
+    }
+    for (const part of parts) {
+      if (part.firstChild?.nodeType === 3) part.firstChild.textContent = part.firstChild.textContent!.replace(/^\n/, '');
+    }
+    paragraph.replaceWith(...parts);
+  }
+}
+
 export function parseMarkdown(text: string, schema: Schema): Fragment | null {
-  const source = text.replace(/\r\n?/g, '\n');
+  const source = separateBlocks(text.replace(/\r\n?/g, '\n'));
   const tokens = markdown.parse(source, {});
   const meaningful = tokens.some(token => ['heading_open', 'bullet_list_open', 'ordered_list_open', 'blockquote_open', 'fence', 'code_block', 'hr', 'table_open'].includes(token.type)
     || token.children?.some(child => ['strong_open', 'em_open', 's_open', 'link_open', 'image', 'code_inline'].includes(child.type)));
@@ -208,6 +249,7 @@ export function parseMarkdown(text: string, schema: Schema): Fragment | null {
   const html = normalizeTaskHTML(markdown.renderer.render(tokens, markdown.options, {}));
   const dom = new DOMParser().parseFromString(html, 'text/html');
   liftImages(dom);
+  splitLines(dom);
   const doc = ProseMirrorParser.fromSchema(schema).parse(dom.body);
   doc.check();
   return doc.content;

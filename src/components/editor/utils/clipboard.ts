@@ -5,7 +5,9 @@ function inline(node: ProseMirrorNode): string {
   if (node.isText) {
     let text = node.text || '';
     if (!node.marks.some(mark => mark.type.name === 'code')) {
-      text = text.replace(/[\\`*_[\]~]/g, '\\$&')
+      // Plain text is read by people: only escape what would turn ordinary
+      // text into formatting (* and `), not snake_case, [labels] or ~.
+      text = text.replace(/[`*]/g, '\\$&')
         .replace(/^(\s*)([#>+-])(?=\s)/gm, '$1\\$2')
         .replace(/^(\s*\d+)\.(?=\s)/gm, '$1\\.');
     }
@@ -21,7 +23,7 @@ function inline(node: ProseMirrorNode): string {
     }
     return text;
   }
-  if (node.type.name === 'hardBreak') return '  \n';
+  if (node.type.name === 'hardBreak') return '\n';
   let text = '';
   node.forEach(child => { text += inline(child); });
   return text;
@@ -48,6 +50,8 @@ function block(node: ProseMirrorNode): string {
         const text = block(child);
         if (!childIndex) parts.push(prefix + text.replace(/\n/g, '\n' + indent));
         else if (['taskList', 'bulletList', 'orderedList'].includes(child.type.name)) parts.push(text.split('\n').map(line => indent + line).join('\n'));
+        // A second paragraph inside one item keeps Markdown's blank line, or
+        // it would come back as a line break of the first (rare in logs).
         else parts.push('\n' + text.split('\n').map(line => indent + line).join('\n'));
       });
       lines.push(parts.join('\n'));
@@ -80,11 +84,15 @@ function block(node: ProseMirrorNode): string {
   return serializeBlocks(node.content);
 }
 
-/** Separate semantic blocks, never every structural node in a nested list. */
+/**
+ * One line per block, like Notion's plain text: no blank line between
+ * blocks, so pasting into a text editor or chat keeps the log's line rhythm.
+ * An empty paragraph is a deliberate blank line and stays exactly one.
+ */
 export function serializeBlocks(content: Fragment): string {
   const blocks: string[] = [];
   content.forEach(node => blocks.push(block(node)));
-  return blocks.join('\n\n');
+  return blocks.join('\n');
 }
 
 export function serializeClipboard(slice: Slice, state: EditorState): string {
