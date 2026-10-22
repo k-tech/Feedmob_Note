@@ -260,3 +260,25 @@ kbd { font-family: inherit; white-space: nowrap; font-size: 11px; color: var(--m
 .log-open-link { border: 1px solid var(--border); }
 .log-page-icon { font-size: 42px; line-height: 1; margin-bottom: 14px; }
 .log-page-title { font-size: clamp(28px, 3.4vw, 38px); font-weight: 700; line-height: 1.25; letter-spacing: -.035em; margin-bottom: 18px; overflow-wrap: anywhere; }
+
+/* Log snapshot: an off-screen card captured as one image for the team chat. */
+.snapshot-overlay { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 15, 15, .45); }
+.snapshot-panel { display: flex; flex-direction: column; width: min(860px, 100%); max-height: calc(100vh - 32px); overflow: hidden; }
+.snapshot-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.snapshot-preview { flex: 1; min-height: 160px; overflow: auto; background: var(--muted); }
+.snapshot-preview img { display: block; width: 100%; height: auto; }
+.snapshot-panel-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.snapshot-stage { position: fixed; left: -100000px; top: 0; pointer-events: none; }
+.snapshot-card { background: var(--background); color: var(--foreground); padding: 44px 48px 28px; }
+.snapshot-card-head { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.snapshot-card-icon { font-size: 40px; line-height: 1; margin-bottom: 12px; }
+.snapshot-card-head h1 { font-size: 30px; font-weight: 700; line-height: 1.25; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.snapshot-card-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; font-size: 13px; color: var(--muted-foreground); }
+.snapshot-card-tag { padding: 1px 8px; border-radius: 4px; background: var(--muted); color: var(--foreground); }
+.snapshot-card-foot { margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted-foreground); }
+/* Embedded pages cannot be drawn into an image: show a labelled frame. */
+.log-document.is-capture iframe { display: none; }
+.log-document.is-capture .html-block::before, .log-document.is-capture .embed-frame::before { display: flex; align-items: center; justify-content: center; height: 88px; padding: 0 16px; text-align: center; background: var(--muted); color: var(--muted-foreground); font-size: 13px; }
+.log-document.is-capture .html-block::before { content: 'HTML 预览 · 请在 Minework 中查看'; }
+.log-document.is-capture .embed-frame { height: auto !important; }
+.log-document.is-capture .embed-frame::before { content: '嵌入内容 · 请在 Minework 中查看'; }

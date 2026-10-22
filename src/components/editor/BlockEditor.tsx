@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import type { JSONContent } from '@tiptap/core';
 import { SelectionToolbar } from './SelectionToolbar';
 import { BlockSelection, handleBlockSelectionKeyDown } from './extensions/BlockSelection';
 import { EditorLinkPopover } from './EditorLinkPopover';
@@ -13,6 +14,7 @@ import { TableToolbar } from './TableToolbar';
 import { hasPendingImages } from './utils/image';
 import { SlashCommandMenu, LOG_TEMPLATE } from './SlashCommandMenu';
 import { BlockDragHandle } from './BlockDragHandle';
+import { LogSnapshot } from './LogSnapshot';
 import { moveBlock, duplicateBlock } from './utils/block-movement';
 import { SlashCommand } from './extensions/SlashCommand';
 import { EditorClipboard } from './extensions/EditorClipboard';
@@ -43,6 +45,7 @@ import {
   FileText,
   Maximize2,
   Minimize2,
+  Camera,
 } from 'lucide-react';
 
 
@@ -95,6 +98,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
   const [helpOpen, setHelpOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [wordCount, setWordCount] = useState(0);
+  const [snapshot, setSnapshot] = useState<JSONContent | null>(null);
 
   const savingRef = useRef(false);
   const [savePending, setSavePending] = useState(false);
@@ -293,7 +297,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
     LOG_TEMPLATE.action(editor);
   };
 
-  const { isFullWidth, toggleFullWidth } = useCurrentUser();
+  const { isFullWidth, toggleFullWidth, currentUser } = useCurrentUser();
 
   useLayoutEffect(() => {
     const resize = () => {
@@ -346,6 +350,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
           {isDirty ? (draftStored ? '本地草稿已保存 · 有未提交修改' : '有未提交修改 · 请及时提交') : (lastSavedTime ? `成功保存于 ${lastSavedTime}` : '准备开始记录')}
         </span>
         <div className="flex items-center gap-1.5 shrink-0">
+          <button type="button" onClick={() => editor && setSnapshot(editor.getJSON())} disabled={!editor} className="quiet-button" aria-label="生成日志截图"><Camera size={15} />截图</button>
           <button type="button" onClick={insertTemplate} className="quiet-button template-button"><FileText size={15} />日志模板</button>
           <div ref={optionsRef} className="relative">
             <button type="button" aria-label="页面选项" aria-expanded={optionsOpen} onClick={() => setOptionsOpen(!optionsOpen)} className="icon-button"><MoreHorizontal size={19} /></button>
@@ -416,6 +421,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
         <span>{date}<span className="mx-2">·</span>{wordCount} 字</span>
         <div className="flex items-center gap-2"><button type="button" className="quiet-button mobile-block-button" onMouseDown={event => event.preventDefault()} onClick={() => editor?.view.dom.dispatchEvent(new Event('feedmob:open-block-menu'))}>块操作</button><button type="button" className="quiet-button" aria-expanded={helpOpen} onClick={() => setHelpOpen(!helpOpen)}><Keyboard size={15} />快捷键</button></div>
       </div>
+      {snapshot && <LogSnapshot content={snapshot} title={title} mood={mood} date={date} tags={tags} author={currentUser?.name} onClose={() => setSnapshot(null)} />}
       {helpOpen && <div className="keyboard-help" role="region" aria-label="编辑器快捷键">
         <div className="flex items-center justify-between mb-3"><span className="font-medium">让记录跟上思路</span><button type="button" aria-label="关闭快捷键" className="icon-button" onClick={() => setHelpOpen(false)}><X size={16} /></button></div>
         {[
