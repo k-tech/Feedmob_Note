@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core';
 import type { Editor } from '@tiptap/core';
 import { Fragment, type ResolvedPos } from '@tiptap/pm/model';
 import { Selection, TextSelection } from '@tiptap/pm/state';
+import { joinTextblockForward } from '@tiptap/pm/commands';
 import { convertBlock } from '../utils/block-conversion';
 import { deleteBlockAtPos } from '../utils/block-movement';
 
@@ -86,15 +87,25 @@ export function backspaceAtBlockStart(editor: Editor): boolean {
 }
 
 /**
- * Delete at the end of the last line of a list, quote or toggle pulls the
- * next paragraph's text into that line (Notion), instead of ProseMirror's
- * joinForward turning the paragraph into another list item.
+ * Delete joins text across sibling list items, or pulls a paragraph after
+ * a list, quote or toggle into its last line. ProseMirror's joinForward
+ * otherwise joins wrappers without joining the text, or nests the paragraph.
  */
 export function deleteAtBlockEnd(editor: Editor): boolean {
   const { selection, doc } = editor.state;
   if (!(selection instanceof TextSelection) || !selection.empty) return false;
   const { $from } = selection;
   if (!$from.parent.isTextblock || $from.parent.type.spec.code || $from.parentOffset !== $from.parent.content.size || $from.depth < 2) return false;
+  const itemDepth = $from.depth - 1;
+  const item = $from.node(itemDepth);
+  if (LIST_ITEMS.includes(item.type.name) && $from.index(itemDepth) === item.childCount - 1) {
+    const nextItem = doc.resolve($from.after(itemDepth)).nodeAfter;
+    // joinForward only joins the item wrappers, leaving two paragraphs.
+    // Join the text boundary too, keeping the following item's children.
+    if (nextItem?.type === item.type) {
+      return joinTextblockForward(editor.state, tr => editor.view.dispatch(tr));
+    }
+  }
   const $next = Selection.findFrom(doc.resolve($from.after()), 1, true)?.$from;
   if (!$next || $next.parentOffset !== 0) return false;
   const next = $next.parent;
