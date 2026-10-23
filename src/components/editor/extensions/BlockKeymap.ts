@@ -219,7 +219,14 @@ export const BlockKeymap = Extension.create({
   priority: 1000,
   addKeyboardShortcuts() {
     return {
-      Backspace: ({ editor }) => editor.commands.undoInputRule() || backspaceAtBlockStart(editor),
+      Backspace: ({ editor }) => {
+        const plugin = editor.state.plugins.find(plugin => plugin.spec.isInputRules && plugin.getState(editor.state));
+        const input = plugin?.getState(editor.state);
+        // Undoing a whole-list replacement maps the caret to the suffix.
+        // Restore the original input position after the literal marker.
+        if (input) return editor.chain().undoInputRule().setTextSelection(input.from + input.text.length).run();
+        return backspaceAtBlockStart(editor);
+      },
       Delete: ({ editor }) => deleteAtBlockEnd(editor),
       // StarterKit's hard break would exit the code block; code wants a newline.
       'Shift-Enter': ({ editor }) => {
