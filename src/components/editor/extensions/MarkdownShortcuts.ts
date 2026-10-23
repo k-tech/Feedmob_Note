@@ -1,4 +1,5 @@
 import { Extension, InputRule, textblockTypeInputRule, wrappingInputRule } from '@tiptap/core';
+import { Fragment } from '@tiptap/pm/model';
 import { applyBlockConversion, type BlockType } from '../utils/block-conversion';
 
 /**
@@ -8,6 +9,8 @@ import { applyBlockConversion, type BlockType } from '../utils/block-conversion'
  * mode (＃ 》 【】 ··· 。) and Markdown links.
  */
 const SPACE = '[\\s\\u3000]';
+const ORDERED_INPUT = new RegExp(`^(\\d+)[.。．)）]${SPACE}$`);
+const CODE_INPUT = new RegExp(`^(?:\`\`\`|···|｀｀｀)([\\w+#.-]*)${SPACE}$`);
 
 /** Accept explicit web/mail links and bare domains; reject script URLs. */
 export function normalizeTypedLink(raw: string): string | null {
@@ -22,16 +25,16 @@ export function normalizeTypedLink(raw: string): string | null {
  * already wraps the paragraph). Notion turns the item itself into the typed
  * type, e.g. "1. " in a bullet makes it numbered and "## " makes a heading.
  */
-const LIST_ITEM_TURN_INTO: [RegExp, (match: RegExpMatchArray) => BlockType][] = [
-  [new RegExp(`^\\d+[.。．)）]${SPACE}$`), () => 'orderedList'],
+const LIST_ITEM_TURN_INTO: [RegExp, (match: RegExpMatchArray) => BlockType, ((match: RegExpMatchArray) => Record<string, unknown>)?][] = [
+  [ORDERED_INPUT, () => 'orderedList', match => ({ start: Number(match[1]) })],
   [new RegExp(`^[-+*－＋＊]${SPACE}$`), () => 'bulletList'],
   [new RegExp(`^([#＃]{1,3})${SPACE}$`), match => `heading${match[1].length}` as BlockType],
   [new RegExp(`^[>》]${SPACE}$`), () => 'blockquote'],
-  [new RegExp(`^(?:\`\`\`|···|｀｀｀)${SPACE}$`), () => 'codeBlock'],
+  [CODE_INPUT, () => 'codeBlock', match => ({ language: match[1] || null })],
 ];
 
 function listItemTurnIntoRules(): InputRule[] {
-  return LIST_ITEM_TURN_INTO.map(([find, target]) => new InputRule({
+  return LIST_ITEM_TURN_INTO.map(([find, target, getAttributes]) => new InputRule({
     find,
     handler: ({ state, range, match }) => {
       const { $from } = state.selection;
@@ -42,7 +45,7 @@ function listItemTurnIntoRules(): InputRule[] {
       const type = target(match);
       // Typing the list's own marker inside it stays literal text.
       if (type === $from.node(itemDepth - 1).type.name) return null;
-      if (applyBlockConversion(state.tr, $from.before(itemDepth), type, range) === null) return null;
+      if (applyBlockConversion(state.tr, $from.before(itemDepth), type, range, getAttributes?.(match)) === null) return null;
     },
   }));
 }
@@ -64,7 +67,7 @@ export const MarkdownShortcuts = Extension.create({
     if (bulletList) rules.push(wrappingInputRule({ find: new RegExp(`^\\s*[-+*－＋＊]${SPACE}$`), type: bulletList }));
     if (orderedList) {
       rules.push(wrappingInputRule({
-        find: new RegExp(`^(\\d+)[.。．)）]${SPACE}$`),
+        find: ORDERED_INPUT,
         type: orderedList,
         getAttributes: match => ({ start: Number(match[1]) }),
         joinPredicate: (match, node) => node.childCount + node.attrs.start === Number(match[1]),
@@ -72,7 +75,7 @@ export const MarkdownShortcuts = Extension.create({
     }
     if (codeBlock) {
       rules.push(textblockTypeInputRule({
-        find: new RegExp(`^(?:\`\`\`|···|｀｀｀)([\\w+#.-]*)${SPACE}$`),
+        find: CODE_INPUT,
         type: codeBlock,
         getAttributes: match => ({ language: match[1] || null }),
       }));
@@ -87,7 +90,15 @@ export const MarkdownShortcuts = Extension.create({
           // The closing bracket has not been inserted; a matched prefix
           // character before the link must stay as typed.
           const from = range.from + match[0].length - match[1].length;
-          state.tr.replaceWith(from, range.to, state.schema.text(match[2], [linkMark.create({ href })]));
+          const labelStart = from + 1;
+          const existingLength = Math.max(0, Math.min(match[2].length, state.selection.from - labelStart));
+          let content = existingLength ? state.doc.slice(labelStart, labelStart + existingLength).content : Fragment.empty;
+          // A single text input may include part or all of the label before
+          // it exists in the document (e.g. a committed IME composition).
+          const rest = match[2].slice(existingLength);
+          if (rest) content = content.append(Fragment.from(state.schema.text(rest, state.storedMarks ?? state.selection.$from.marks())));
+          state.tr.replaceWith(from, range.to, content);
+          state.tr.addMark(from, from + match[2].length, linkMark.create({ href }));
           state.tr.removeStoredMark(linkMark);
         },
       }));

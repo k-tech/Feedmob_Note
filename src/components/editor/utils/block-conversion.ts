@@ -26,10 +26,11 @@ export function canConvertBlock(editor: Editor, pos: number): boolean {
  * ListJoin, so numbering continues again once they touch.
  *
  * Shared by the block menu, slash commands, Backspace and Markdown input rules.
+ * Markdown may supply a list start or code language through attrs.
  * Returns the caret position for the converted block, or null when the
  * conversion is not possible (the transaction is then unusable).
  */
-export function applyBlockConversion(tr: Transaction, pos: number, type: BlockType, range?: { from: number; to: number }): number | null {
+export function applyBlockConversion(tr: Transaction, pos: number, type: BlockType, range?: { from: number; to: number }, attrs?: Record<string, unknown>): number | null {
   const original = tr.doc.nodeAt(pos);
   if (!convertible(original)) return null;
   if (range && (range.from < pos || range.to < range.from || range.to > pos + original.nodeSize)) return null;
@@ -57,10 +58,10 @@ export function applyBlockConversion(tr: Transaction, pos: number, type: BlockTy
       siblings = [];
     } else if (type.startsWith('heading')) converted = schema.nodes.heading.createChecked({ level: Number(type.slice(-1)) }, textBlock.content);
     else if (type === 'paragraph') converted = paragraph;
-    else if (type === 'codeBlock') converted = schema.nodes.codeBlock.createChecked(null, textBlock.textContent ? schema.text(textBlock.textContent) : null);
+    else if (type === 'codeBlock') converted = schema.nodes.codeBlock.createChecked(attrs, textBlock.textContent ? schema.text(textBlock.textContent) : null);
     else if (['bulletList', 'orderedList', 'taskList'].includes(type)) {
       const itemType = schema.nodes[type === 'taskList' ? 'taskItem' : 'listItem'];
-      converted = schema.nodes[type].createChecked(null, [itemType.createChecked(type === 'taskList' ? { checked: node.attrs.checked ?? false } : null, [paragraph, ...trailing])]);
+      converted = schema.nodes[type].createChecked(attrs, [itemType.createChecked(type === 'taskList' ? { checked: node.attrs.checked ?? false } : null, [paragraph, ...trailing])]);
       siblings = [];
     } else {
       converted = schema.nodes[type].createChecked(type === 'callout' ? { type: 'tip' } : null, [paragraph, ...trailing]);
