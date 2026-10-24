@@ -1,5 +1,5 @@
 import MarkdownIt from 'markdown-it';
-import { DOMParser as ProseMirrorParser, type Schema, type Fragment } from '@tiptap/pm/model';
+import { DOMParser as ProseMirrorParser, Fragment, type Schema } from '@tiptap/pm/model';
 
 // External HTML is parsed through the editor schema. Markdown HTML stays literal;
 // executable HTML is only available through the existing isolated preview block.
@@ -106,7 +106,7 @@ function normalizeWordLists(doc: Document): boolean {
     const run: HTMLElement[] = [];
     for (let element: Element | null = first; isItem(element); element = element.nextElementSibling) run.push(element);
     const stack: { level: number; list: HTMLElement }[] = [];
-    let root: HTMLElement | null = null;
+    const roots = doc.createDocumentFragment();
     for (const paragraph of run) {
       done.add(paragraph);
       const level = Number(/level(\d+)/i.exec(paragraph.getAttribute('style') || '')?.[1] || 1);
@@ -115,13 +115,17 @@ function normalizeWordLists(doc: Document): boolean {
       markerElement?.remove();
       while (stack.length && stack[stack.length - 1].level > level) stack.pop();
       let top = stack[stack.length - 1];
+      const tag = ORDERED_MARKER.test(marker) ? 'ol' : 'ul';
+      if (top?.level === level && top.list.tagName.toLowerCase() !== tag) {
+        stack.pop();
+        top = stack[stack.length - 1];
+      }
       if (!top || top.level < level) {
-        const ordered = ORDERED_MARKER.test(marker);
-        const list = doc.createElement(ordered ? 'ol' : 'ul');
+        const list = doc.createElement(tag);
         const start = Number(/^\d+/.exec(marker)?.[0]);
-        if (ordered && start > 1) list.setAttribute('start', String(start));
+        if (tag === 'ol' && start > 1) list.setAttribute('start', String(start));
         if (top) (top.list.lastElementChild ?? top.list).appendChild(list);
-        else root = list;
+        else roots.appendChild(list);
         top = { level, list };
         stack.push(top);
       }
@@ -131,7 +135,7 @@ function normalizeWordLists(doc: Document): boolean {
       item.appendChild(body);
       top.list.appendChild(item);
     }
-    run[0].before(root!);
+    run[0].before(roots);
     run.forEach(paragraph => paragraph.remove());
   }
   return true;
@@ -240,7 +244,13 @@ export function parseMarkdown(text: string, schema: Schema): Fragment | null {
   const tokens = markdown.parse(source, {});
   const meaningful = tokens.some(token => ['heading_open', 'bullet_list_open', 'ordered_list_open', 'blockquote_open', 'fence', 'code_block', 'hr', 'table_open'].includes(token.type)
     || token.children?.some(child => ['strong_open', 'em_open', 's_open', 'link_open', 'image', 'code_inline'].includes(child.type)));
-  if (!meaningful) return null;
+  if (!meaningful) {
+    if (!/\\[`*]/.test(text)) return null;
+    // Decode clipboard escapes once and bypass native regex paste rules.
+    // This is still plain text: keep its spaces and explicit empty blocks.
+    const literal = text.replace(/\r\n?/g, '\n').replace(/\\([`*])/g, '$1');
+    return Fragment.fromArray(literal.split('\n').map(line => schema.nodes.paragraph.create(null, line ? schema.text(line) : null)));
+  }
   // Markdown parsers include the fence's terminating newline in token.content.
   // Store only the code body, so repeated copy/paste never adds a blank line.
   for (const token of tokens) {
