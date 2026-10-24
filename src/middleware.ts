@@ -1,7 +1,7 @@
 import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 
-const developmentSecret = 'workweave-development-secret-change-me';
+const developmentSecret = 'minework-development-secret-change-me';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

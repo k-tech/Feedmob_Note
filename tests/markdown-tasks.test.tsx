@@ -181,7 +181,7 @@ test('browser HTML paragraph wrappers still recognize task source without losing
 const USER_LIST = [
   ['Capital One Shopping <> LG 后续 spend 手动录入', false], ['Binance <> Kayzen TH Spend 后续 spend 手动录入', true],
   ['结合已梳理的 SOP 规范，推进日常录入的智能体化与自动化落地', false], ['Omarchy 系统深度调研（暂停）', true],
-  ['持续推进蒸馏版 Notion / WorkWeave 后续功能与内容完善', false], ['在远程服务器上做五小时测试任务', false],
+  ['持续推进蒸馏版 Notion / Minework 后续功能与内容完善', false], ['在远程服务器上做五小时测试任务', false],
   ['Binance TH <> Remerge Spend 后续录入', false], ['完成后续实习报告', false],
 ] as const;
 const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

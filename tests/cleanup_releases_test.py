@@ -22,13 +22,13 @@ class CleanupReleasesTests(unittest.TestCase):
         (self.release / 'main.js').write_text('current')
         (self.root / 'data').mkdir()
         (self.root / 'data' / 'dev.db').write_bytes(b'live database')
-        (self.root / 'workweave.env').write_text('live config')
+        (self.root / 'minework.env').write_text('live config')
         (self.root / 'cleanup-releases.py').write_text('current cleaner')
         self.active = {
             'Id': 'active-container', 'Image': 'active-image-id',
-            'Config': {'Image': 'workweave:20261019-current'},
+            'Config': {'Image': 'minework:20261019-current'},
             'State': {'Running': True, 'Status': 'running'},
-            'Name': '/workweave',
+            'Name': '/minework',
             'Mounts': [{'Type': 'bind', 'Source': str(self.root / 'data' / 'dev.db')}],
         }
         self.commands = []
@@ -39,7 +39,7 @@ class CleanupReleasesTests(unittest.TestCase):
         if args == ('inspect', 'active-container'): return json.dumps([self.active])
         if args[:2] == ('image', 'ls'):
             return '\n'.join(json.dumps(item) for item in [
-                {'Repository': 'workweave', 'Tag': '20261019-current', 'ID': 'active-image-id'},
+                {'Repository': 'minework', 'Tag': '20261019-current', 'ID': 'active-image-id'},
                 {'Repository': 'workweave', 'Tag': '20261017-old', 'ID': 'old-image-id'},
                 {'Repository': 'another-app', 'Tag': 'old', 'ID': 'unrelated-image-id'},
             ])
@@ -60,12 +60,12 @@ class CleanupReleasesTests(unittest.TestCase):
         for name in ['minework-old.tar.gz', 'workweave-old.zip', 'deploy-test.py', 'audit-test.py', 'verify-test.py', 'config.bak']:
             (self.root / name).write_text('old artifact')
         self.run_cleanup(apply=True)
-        self.assertEqual({p.name for p in self.root.iterdir()}, {'data', 'releases', 'workweave.env', 'cleanup-releases.py'})
+        self.assertEqual({p.name for p in self.root.iterdir()}, {'data', 'releases', 'minework.env', 'cleanup-releases.py'})
         self.assertEqual([p.name for p in (self.root / 'releases').iterdir()], ['20261019-current'])
         self.assertEqual((self.root / 'data' / 'dev.db').read_bytes(), b'live database')
-        self.assertEqual((self.root / 'workweave.env').read_text(), 'live config')
+        self.assertEqual((self.root / 'minework.env').read_text(), 'live config')
         self.assertIn(('image', 'rm', 'workweave:20261017-old'), self.commands)
-        self.assertNotIn(('image', 'rm', 'workweave:20261019-current'), self.commands)
+        self.assertNotIn(('image', 'rm', 'minework:20261019-current'), self.commands)
         self.assertNotIn(('image', 'rm', 'another-app:old'), self.commands)
         self.run_cleanup(apply=True)  # Nothing is recreated or moved on a second run.
         self.assertFalse((self.root / 'database-backups').exists())

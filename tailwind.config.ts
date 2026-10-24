@@ -18,7 +18,7 @@ const config: Config = {
           border: "var(--sidebar-border)",
           accent: "var(--sidebar-accent)",
         },
-        feedmob: {
+        minework: {
           50: "#f0fdf4",
           100: "#dcfce7",
           500: "#22c55e",

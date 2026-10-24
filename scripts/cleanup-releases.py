@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 
-ROOT = Path('/home/ubuntu/workweave')
+ROOT = Path('/home/ubuntu/minework')
 
 
 def docker(*args):
@@ -33,7 +33,7 @@ def main():
     parser.add_argument('--prune-build-cache', action='store_true',
                         help='Also clear unused cache in the shared Docker builder (no images or volumes).')
     args = parser.parse_args()
-    active = inspect('workweave')
+    active = inspect('minework')
     if not active['State']['Running']:
         raise RuntimeError('Minework must be running before cleaning releases')
     image = active['Config']['Image']
@@ -43,7 +43,7 @@ def main():
     release = ROOT / 'releases' / match[1]
     if not release.is_dir() or release.is_symlink():
         raise RuntimeError('The active source release must exist as a real directory')
-    protected = {release.resolve(), (ROOT / 'data').resolve(), (ROOT / 'workweave.env').resolve()}
+    protected = {release.resolve(), (ROOT / 'data').resolve(), (ROOT / 'minework.env').resolve()}
     # A mount owned by any application must never be deleted as a build artifact.
     ids = docker('container', 'ls', '-aq').split()
     containers = json.loads(docker('inspect', *ids)) if ids else []
@@ -85,7 +85,7 @@ def main():
     if not args.apply:
         return
     # Abort if a deployment raced with the inventory.
-    latest = inspect('workweave')
+    latest = inspect('minework')
     if latest['Id'] != active['Id'] or latest['Image'] != active['Image'] or not latest['State']['Running']:
         raise RuntimeError('The active deployment changed; rerun the preview')
     free_before = shutil.disk_usage(ROOT).free
@@ -105,7 +105,7 @@ def main():
     if args.prune_build_cache:
         output = docker('builder', 'prune', '--all', '--force')
         print(output.strip().splitlines()[-1] if output.strip() else 'No unused build cache')
-    latest = inspect('workweave')
+    latest = inspect('minework')
     if latest['Id'] != active['Id'] or latest['Image'] != active['Image'] or not latest['State']['Running']:
         raise RuntimeError('Active deployment changed during cleanup')
     print(json.dumps({'freed_bytes': shutil.disk_usage(ROOT).free - free_before,

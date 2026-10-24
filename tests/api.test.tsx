@@ -8,7 +8,7 @@ import { createRequire } from 'node:module';
 import { PrismaClient } from '@prisma/client';
 
 test('API saves tags atomically, deduplicates names and rolls back a failed association', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'feedmob-block-test-'));
+  const directory = mkdtempSync(join(tmpdir(), 'minework-block-test-'));
   const client = new PrismaClient({ datasourceUrl: 'file:' + join(directory, 'test.db').replaceAll('\\', '/') });
   // Route identity is now session-bound; keep authentication outside this
   // transaction test while using the isolated user's real database record.

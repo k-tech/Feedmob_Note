@@ -8,7 +8,7 @@ export function parseEmbedUrl(input: string) {
   let embedUrl = url.href;
   if (host === 'figma.com' || host.endsWith('.figma.com')) {
     type = 'figma';
-    embedUrl = 'https://www.figma.com/embed?embed_host=feedmob&url=' + encodeURIComponent(url.href);
+    embedUrl = 'https://www.figma.com/embed?embed_host=minework&url=' + encodeURIComponent(url.href);
   } else if (host === 'youtu.be' || host === 'youtube.com' || host === 'www.youtube.com' || host === 'm.youtube.com') {
     const parts = url.pathname.split('/').filter(Boolean);
     const id = host === 'youtu.be' ? parts[0] : url.searchParams.get('v') ?? (['embed', 'shorts'].includes(parts[0]) ? parts[1] : null);

@@ -1,7 +1,7 @@
 # Obsidian 独立调研报告：本地优先架构、图谱索引与扩展宿主解构
 
 > **调研视角**：系统架构师 & 资深产品专家  
-> **核心目的**：解构 Obsidian 的本地优先存储（Local-First）、双向图谱反向索引（Graph Indexing）及插件宿主架构，评估对自研“Feedmob”系统的参考价值与局限性。  
+> **核心目的**：解构 Obsidian 的本地优先存储（Local-First）、双向图谱反向索引（Graph Indexing）及插件宿主架构，评估对自研“Minework”系统的参考价值与局限性。  
 > **更新时间**：2026 年 8 月
 
 ---
@@ -42,7 +42,7 @@ Obsidian 本质上是一个**基于本地文件系统（File-System as Database�
 
 ## 三、双向链接与图谱反向索引引擎（Graph Indexing）
 
-Obsidian 在知识网络构建上的能力是 Notion 长期欠缺的，也是自研 **Feedmob** 必须吸收的核心能力。
+Obsidian 在知识网络构建上的能力是 Notion 长期欠缺的，也是自研 **Minework** 必须吸收的核心能力。
 
 ```mermaid
 flowchart TD
@@ -109,7 +109,7 @@ Obsidian 无法直接作为团队协同主工具的根本原因在于其**架构
 
 ## 六、实操体验：高光时刻 vs 架构短板
 
-### 6.1 高光时刻（自研 Feedmob 应当吸纳的设计）
+### 6.1 高光时刻（自研 Minework 应当吸纳的设计）
 1. **秒开与极致性能（Sub-10ms Responsiveness）**：
    没有云端网络等待，千篇笔记在本地冷启动仅需数百毫秒，输入毫无卡顿延迟。
 2. **知识网络涌现（Serendipity via Graph）**：

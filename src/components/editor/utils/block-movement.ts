@@ -14,7 +14,7 @@ export { resolveDomBlockPos } from './block-dom';
  * document (this was the "random number" bug: block positions like "23"
  * being inserted as text on drop).
  */
-export const BLOCK_DRAG_MIME = 'application/x-feedmob-block';
+export const BLOCK_DRAG_MIME = 'application/x-minework-block';
 
 /**
  * Resolve the block containing (or adjacent to) the current selection.

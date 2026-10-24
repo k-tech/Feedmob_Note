@@ -37,11 +37,22 @@ test('save in flight never replaces new text; duplicate save is blocked; latest 
     assert.equal(app.editor.getText(), 'before after');
     assert.equal(app.editor.state.selection.from, selection);
     assert.ok(app.container.textContent?.includes('有未提交修改'));
-    assert.ok(localStorage.getItem('feedmob-draft:test:2099-01-01')?.includes('before after'));
+    assert.ok(localStorage.getItem('minework-draft:test:2099-01-01')?.includes('before after'));
   } finally { await app.close(); }
   const restored = await mount(async () => {});
   try { assert.equal(restored.editor.getText(), 'before after'); }
   finally { await restored.close(); localStorage.clear(); }
+});
+
+test('a draft saved under the pre-rename key restores and moves to the Minework key', async () => {
+  localStorage.clear();
+  localStorage.setItem('feedmob-draft:test:2099-01-01', JSON.stringify({ title: '', mood: '', tagNames: [], contentJson: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'legacy draft' }] }] } }));
+  const app = await mount(async () => {});
+  try {
+    assert.equal(app.editor.getText(), 'legacy draft');
+    assert.equal(localStorage.getItem('feedmob-draft:test:2099-01-01'), null);
+    assert.ok(localStorage.getItem('minework-draft:test:2099-01-01')?.includes('legacy draft'));
+  } finally { await app.close(); localStorage.clear(); }
 });
 
 test('failed save is visible, keeps local draft, and can be retried successfully', async () => {
@@ -53,12 +64,12 @@ test('failed save is visible, keeps local draft, and can be retried successfully
     await act(async () => { app.submit().click(); await tick(); });
     assert.match(app.container.querySelector('[role="alert"]')?.textContent ?? '', /模拟保存失败/);
     assert.equal(app.editor.getText(), 'must survive');
-    assert.ok(localStorage.getItem('feedmob-draft:test:2099-01-01'));
+    assert.ok(localStorage.getItem('minework-draft:test:2099-01-01'));
     fail = false;
     await act(async () => { app.submit().click(); await tick(); });
     assert.equal(app.container.querySelector('[role="alert"]'), null);
     assert.ok(app.container.textContent?.includes('成功保存'));
-    assert.equal(localStorage.getItem('feedmob-draft:test:2099-01-01'), null);
+    assert.equal(localStorage.getItem('minework-draft:test:2099-01-01'), null);
   } finally { await app.close(); localStorage.clear(); }
 });
 
@@ -125,7 +136,7 @@ test('the drag handle preserves native mousedown and starts an editor-scoped blo
     await act(async () => { grip.dispatchEvent(drag); });
     const { getDraggedBlockPos } = await import('../src/components/editor/utils/block-drag');
     assert.equal(getDraggedBlockPos(app.editor.view), 0);
-    assert.equal(transfer.values.get('application/x-feedmob-block'), '0');
+    assert.equal(transfer.values.get('application/x-minework-block'), '0');
     assert.equal(transfer.effectAllowed, 'move');
   } finally {
     if (previous) Object.defineProperty(document, 'elementFromPoint', previous);
@@ -161,7 +172,7 @@ test('the right empty column can be deleted from its actual block menu, persists
     await act(async () => { remove.click(); await tick(); });
     assert.deepEqual(app.editor.getJSON().content, [paragraph('keep left'), paragraph('keep after')]);
     assert.equal(app.container.querySelector('[data-type="column-list"]'), null);
-    const draft = JSON.parse(localStorage.getItem('feedmob-draft:' + id)!);
+    const draft = JSON.parse(localStorage.getItem('minework-draft:' + id)!);
     assert.deepEqual(draft.contentJson, app.editor.getJSON());
     await act(async () => { app.editor.commands.undo(); });
     assert.deepEqual(app.editor.getJSON(), before);
@@ -210,7 +221,7 @@ test('a gutter preview commits the same column drop and releases the handle for 
     assert.deepEqual([row.child(0).textContent,row.child(1).textContent],['C','A']);
     assert.equal(app.editor.state.doc.lastChild!.textContent,'D');
     assert.equal(app.container.querySelector('[data-testid="block-drop-indicator"]'),null);
-    assert.equal(app.container.querySelector('.feedmob-drag-source-active'),null);
+    assert.equal(app.container.querySelector('.minework-drag-source-active'),null);
     await act(async()=>{app.editor.commands.undo();});
     assert.deepEqual(app.editor.getJSON(),before);
     const next = app.container.querySelectorAll<HTMLElement>('.tiptap p')[1];
@@ -241,7 +252,7 @@ test('images, HTML source and tables restore from local drafts and submit intact
     original = app.editor.getJSON();
     assert.equal(app.container.querySelector('iframe')?.getAttribute('sandbox'), 'allow-scripts');
     assert.equal(app.container.querySelector('img.journal-image')?.getAttribute('src'), 'https://example.com/photo.png');
-    assert.equal(JSON.stringify(JSON.parse(localStorage.getItem('feedmob-draft:' + id)!).contentJson), JSON.stringify(original));
+    assert.equal(JSON.stringify(JSON.parse(localStorage.getItem('minework-draft:' + id)!).contentJson), JSON.stringify(original));
   } finally { await app.close(); }
   const restored = await mount(async data => { saved = data; }, id);
   try {
@@ -250,7 +261,7 @@ test('images, HTML source and tables restore from local drafts and submit intact
     assert.deepEqual(saved.contentJson, original);
     assert.match(saved.contentText, /本周截图/);
     assert.match(saved.contentText, /结果看板/);
-    assert.equal(localStorage.getItem('feedmob-draft:' + id), null);
+    assert.equal(localStorage.getItem('minework-draft:' + id), null);
   } finally { await restored.close(); localStorage.clear(); }
 });
 

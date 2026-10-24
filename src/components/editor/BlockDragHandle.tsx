@@ -167,7 +167,7 @@ export const BlockDragHandle: React.FC<BlockDragHandleProps> = ({
     };
     const finishDrag = () => {
       endBlockDrag(editor.view);
-      document.querySelectorAll('.feedmob-drag-source-active').forEach(el => el.classList.remove('feedmob-drag-source-active'));
+      document.querySelectorAll('.minework-drag-source-active').forEach(el => el.classList.remove('minework-drag-source-active'));
       dragSourceRef.current = null;
       lastPoint = null;
       setIsDragging(false); setDropIndicator(null);
@@ -261,8 +261,8 @@ export const BlockDragHandle: React.FC<BlockDragHandleProps> = ({
     editor.on('selectionUpdate', sync);
     editor.on('focus', sync);
     editor.view.dom.addEventListener('keydown', shortcut);
-    editor.view.dom.addEventListener('feedmob:open-block-menu', openMenu);
-    return () => { editor.off('selectionUpdate', sync); editor.off('focus', sync); editor.view.dom.removeEventListener('keydown', shortcut); editor.view.dom.removeEventListener('feedmob:open-block-menu', openMenu); };
+    editor.view.dom.addEventListener('minework:open-block-menu', openMenu);
+    return () => { editor.off('selectionUpdate', sync); editor.off('focus', sync); editor.view.dom.removeEventListener('keydown', shortcut); editor.view.dom.removeEventListener('minework:open-block-menu', openMenu); };
   }, [editor, editorContainerRef, isMenuOpen, isDragging]);
 
   useLayoutEffect(() => {
@@ -386,7 +386,7 @@ export const BlockDragHandle: React.FC<BlockDragHandleProps> = ({
                 // 1. Create a pristine Notion-style floating drag snapshot
                 const isDark = document.documentElement.classList.contains('dark');
                 const dragGhost = document.createElement('div');
-                dragGhost.className = 'feedmob-drag-ghost-preview';
+                dragGhost.className = 'minework-drag-ghost-preview';
                 dragGhost.style.position = 'fixed';
                 dragGhost.style.top = '-9999px';
                 dragGhost.style.left = '-9999px';
@@ -426,7 +426,7 @@ export const BlockDragHandle: React.FC<BlockDragHandleProps> = ({
                 // 2. Notion-style dimming and grayscale effect on source block in document
                 requestAnimationFrame(() => {
                   if (dragSourceRef.current?.dom === sourceDom && getDraggedBlockPos(editor.view) !== null) {
-                    sourceDom.classList.add('feedmob-drag-source-active');
+                    sourceDom.classList.add('minework-drag-source-active');
                   }
                 });
               }}
@@ -434,13 +434,13 @@ export const BlockDragHandle: React.FC<BlockDragHandleProps> = ({
                 endBlockDrag(editor.view);
                 const source = dragSourceRef.current;
                 if (source && source.dom) {
-                  source.dom.classList.remove('feedmob-drag-source-active');
+                  source.dom.classList.remove('minework-drag-source-active');
                   source.dom.style.opacity = '';
                   source.dom.style.filter = '';
                   source.dom.style.transition = '';
                 }
-                document.querySelectorAll('.feedmob-drag-source-active').forEach((el) => {
-                  el.classList.remove('feedmob-drag-source-active');
+                document.querySelectorAll('.minework-drag-source-active').forEach((el) => {
+                  el.classList.remove('minework-drag-source-active');
                 });
                 dragSourceRef.current = null;
                 setIsDragging(false);

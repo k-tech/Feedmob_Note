@@ -1,6 +1,6 @@
 param([switch]$Headless)
 
-# Feedmob Note dev server launcher.
+# Minework dev server launcher.
 # Intended to be driven by the HE control panel (pwsh -File this.ps1 -Headless).
 # ASCII-only on purpose: Windows PowerShell 5.1 mis-parses non-BOM UTF-8.
 
@@ -62,12 +62,12 @@ foreach ($File in @($OutLog, $ErrLog)) {
 }
 
 if (-not $Headless) {
-  try { [System.Console]::Title = 'Feedmob Note Dev Server' } catch { }
+  try { [System.Console]::Title = 'Minework Dev Server' } catch { }
   $script:OriginalTreatCtrlCAsInput = [System.Console]::TreatControlCAsInput
   [System.Console]::TreatControlCAsInput = $true
 }
 
-Write-Step 'Feedmob Note dev server launcher' 'Cyan'
+Write-Step 'Minework dev server launcher' 'Cyan'
 Write-Host ''
 
 # First-run dependency install.

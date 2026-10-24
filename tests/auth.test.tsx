@@ -19,14 +19,14 @@ test('Google sign-in keeps the verified corporate domain restriction', async () 
 
 test('OAuth redirects retain internal destinations and reject external callbacks', async () => {
   const redirect = authOptions.callbacks!.redirect!;
-  const baseUrl = 'https://workweave.techmob.net';
+  const baseUrl = 'https://minework.techmob.net';
   assert.equal(await redirect({ url: '/calendar?date=2026-10-13', baseUrl }), baseUrl + '/calendar?date=2026-10-13');
   assert.equal(await redirect({ url: baseUrl + '/stream', baseUrl }), baseUrl + '/stream');
   assert.equal(await redirect({ url: 'https://external.example/', baseUrl }), baseUrl);
 });
 
 test('middleware protects pages and APIs while keeping login and OAuth routes available', async () => {
-  const base = 'https://workweave.techmob.net';
+  const base = 'https://minework.techmob.net';
   const page = await middleware(new NextRequest(base + '/calendar?date=2026-10-13'));
   assert.equal(page.status, 307);
   const location = new URL(page.headers.get('location')!);

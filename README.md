@@ -41,7 +41,7 @@
 ### 1. 安装依赖与初始化数据库
 ```bash
 # 进入项目目录
-cd Feedmob_Note
+cd Minework
 
 # 安装依赖
 npm ci
@@ -68,7 +68,7 @@ npm run start
 ## 📁 目录结构
 
 ```text
-feedmob_note/
+minework/
 ├── prisma/
 │   ├── schema.prisma              # 数据库模型 (User / Team / WorkLog / Tag / Comment / Reaction)
 │   └── seed.js                    # 示例数据脚本
@@ -129,17 +129,17 @@ feedmob_note/
 
 代码先 commit 并 push，发布成功后，服务器仅保留当前运行的 Minework 镜像与对应源码目录。旧回退容器、旧镜像、旧源码、上传包和构建备份均清理；恢复历史版本时从 Git 中重建。仅保留正在使用的日志数据库原件、当前运行配置和必要的代理/TLS 配置。按 2026-10-19 再次确认的要求，历史备份全部删除，包括 `backups/` 和 `database-backups/` 中的数据库快照；不再把快照转移到其他目录保留。凭据与业务数据不进入 Git，同机其他项目不属于此清理范围。
 
-将 [清理脚本](scripts/cleanup-releases.py) 放到服务器 `/home/ubuntu/workweave/cleanup-releases.py`：
+将 [清理脚本](scripts/cleanup-releases.py) 放到服务器 `/home/ubuntu/minework/cleanup-releases.py`：
 
 ```bash
 # 先查看计划
-python3 /home/ubuntu/workweave/cleanup-releases.py --prune-build-cache
+python3 /home/ubuntu/minework/cleanup-releases.py --prune-build-cache
 
 # 发布完成、确认当前服务正常后执行
-sudo python3 /home/ubuntu/workweave/cleanup-releases.py --apply --prune-build-cache
+sudo python3 /home/ubuntu/minework/cleanup-releases.py --apply --prune-build-cache
 ```
 
-每次发布健康验证通过后必须清理，并复查项目目录只剩 `data/`、当前版本的 `releases/<version>/`、`workweave.env` 和当前清理脚本；临时审计/发布脚本用完即删，还要核查旧部署系统留下的同项目实例。清理后验证数据库完整性和公开版本接口。此规则同时写在 [AGENTS.md](AGENTS.md) 中。
+每次发布健康验证通过后必须清理，并复查项目目录只剩 `data/`、当前版本的 `releases/<version>/`、`minework.env` 和当前清理脚本；临时审计/发布脚本用完即删，还要核查旧部署系统留下的同项目实例。清理后验证数据库完整性和公开版本接口。此规则同时写在 [AGENTS.md](AGENTS.md) 中。
 
 `--prune-build-cache` 可清理 Docker 共享构建器中未使用的构建缓存，不删除其他应用的镜像、容器或数据卷。下一次构建可能需要重新下载依赖。
 

@@ -58,14 +58,14 @@ export class BlockRangeSelection extends Selection {
     }
     return Selection.near(doc.resolve(Math.min(anchor.pos, doc.content.size)));
   }
-  toJSON() { return { type: 'feedmobBlockRange', anchor: this.blockAnchor, head: this.blockHead }; }
+  toJSON() { return { type: 'mineworkBlockRange', anchor: this.blockAnchor, head: this.blockHead }; }
   static fromJSON(doc: ProseMirrorNode, json: { anchor: number; head: number }): Selection {
     return new BlockRangeSelection(doc, json.anchor, json.head);
   }
   getBookmark(): SelectionBookmark { return new BlockBookmark(this.blockAnchor, this.blockHead); }
 }
 BlockRangeSelection.prototype.visible = false;
-Selection.jsonID('feedmobBlockRange', BlockRangeSelection);
+Selection.jsonID('mineworkBlockRange', BlockRangeSelection);
 
 class BlockBookmark implements SelectionBookmark {
   constructor(readonly anchor: number, readonly head: number) {}

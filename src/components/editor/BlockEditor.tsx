@@ -72,11 +72,13 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
   onSave,
   isSaving = false,
 }) => {
-  const draftKey = 'feedmob-draft:' + documentId;
+  const draftKey = 'minework-draft:' + documentId;
+  // Drafts written before the Minework rename are restored once, then moved to draftKey.
+  const legacyDraftKey = 'feedmob-draft:' + documentId;
   const [initialSnapshot] = useState<DocumentSnapshot>(() => {
     const server = { title: initialTitle, contentJson: parseDocument(initialContent), tagNames: initialTags, mood: initialMood };
     try {
-      const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
+      const draft = JSON.parse(localStorage.getItem(draftKey) ?? localStorage.getItem(legacyDraftKey) ?? 'null');
       if (draft && typeof draft.title === 'string' && typeof draft.mood === 'string' && Array.isArray(draft.tagNames) && draft.tagNames.every((tag: unknown) => typeof tag === 'string')) {
         return { ...draft, contentJson: parseDocument(draft.contentJson) };
       }
@@ -228,6 +230,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       try {
         if (dirty) localStorage.setItem(draftKey, JSON.stringify(snapshot));
         else localStorage.removeItem(draftKey);
+        localStorage.removeItem(legacyDraftKey);
         setDraftStored(true);
       } catch { setDraftStored(false); setSaveError('本地草稿无法保存，请及时提交日志。'); return false; }
       return true;
@@ -245,7 +248,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
     editor.on('update', persist);
     window.addEventListener(BEFORE_APP_REFRESH, beforeRefresh);
     return () => { editor.off('update', persist); window.removeEventListener(BEFORE_APP_REFRESH, beforeRefresh); };
-  }, [editor, title, tags, mood, draftKey]);
+  }, [editor, title, tags, mood, draftKey, legacyDraftKey]);
 
   const handleManualSave = async () => {
     if (!editor || isSaving || savingRef.current) return;
@@ -419,7 +422,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({
       </div>
       <div className="editor-footer">
         <span>{date}<span className="mx-2">·</span>{wordCount} 字</span>
-        <div className="flex items-center gap-2"><button type="button" className="quiet-button mobile-block-button" onMouseDown={event => event.preventDefault()} onClick={() => editor?.view.dom.dispatchEvent(new Event('feedmob:open-block-menu'))}>块操作</button><button type="button" className="quiet-button" aria-expanded={helpOpen} onClick={() => setHelpOpen(!helpOpen)}><Keyboard size={15} />快捷键</button></div>
+        <div className="flex items-center gap-2"><button type="button" className="quiet-button mobile-block-button" onMouseDown={event => event.preventDefault()} onClick={() => editor?.view.dom.dispatchEvent(new Event('minework:open-block-menu'))}>块操作</button><button type="button" className="quiet-button" aria-expanded={helpOpen} onClick={() => setHelpOpen(!helpOpen)}><Keyboard size={15} />快捷键</button></div>
       </div>
       {snapshot && <LogSnapshot content={snapshot} title={title} mood={mood} date={date} tags={tags} author={currentUser?.name} onClose={() => setSnapshot(null)} />}
       {helpOpen && <div className="keyboard-help" role="region" aria-label="编辑器快捷键">

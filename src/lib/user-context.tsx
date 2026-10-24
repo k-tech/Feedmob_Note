@@ -37,8 +37,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      setIsSidebarCollapsed(localStorage.getItem('feedmob_sidebar_collapsed') === 'true');
-      setIsFullWidth(localStorage.getItem('feedmob_editor_full_width') === 'true');
+      // Preferences saved before the Minework rename used the feedmob_ prefix.
+      const preference = (name: string) => (localStorage.getItem('minework_' + name) ?? localStorage.getItem('feedmob_' + name)) === 'true';
+      setIsSidebarCollapsed(preference('sidebar_collapsed'));
+      setIsFullWidth(preference('editor_full_width'));
     } catch { /* Preferences are optional when browser storage is disabled. */ }
   }, []);
 
@@ -50,7 +52,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setIsSidebarCollapsed((prev) => {
       const next = !prev;
       if (typeof window !== 'undefined') {
-        try { localStorage.setItem('feedmob_sidebar_collapsed', String(next)); } catch {}
+        try { localStorage.setItem('minework_sidebar_collapsed', String(next)); } catch {}
       }
       return next;
     });
@@ -60,7 +62,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setIsFullWidth((prev) => {
       const next = !prev;
       if (typeof window !== 'undefined') {
-        try { localStorage.setItem('feedmob_editor_full_width', String(next)); } catch {}
+        try { localStorage.setItem('minework_editor_full_width', String(next)); } catch {}
       }
       return next;
     });
