@@ -7,9 +7,7 @@ function inline(node: ProseMirrorNode): string {
     if (!node.marks.some(mark => mark.type.name === 'code')) {
       // Plain text is read by people: only escape what would turn ordinary
       // text into formatting (* and `), not snake_case, [labels] or ~.
-      text = text.replace(/[`*]/g, '\\$&')
-        .replace(/^(\s*)([#>+-])(?=\s)/gm, '$1\\$2')
-        .replace(/^(\s*\d+)\.(?=\s)/gm, '$1\\.');
+      text = text.replace(/[`*]/g, '\\$&');
     }
     for (const mark of node.marks) {
       if (mark.type.name === 'code') {
